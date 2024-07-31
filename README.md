@@ -1,12 +1,12 @@
 # Inzynierka-TotalSegmentator
 
-Title: Desktop Application for Visualization and Analysis of a Human Body 3D Deep Learning-Based Models.
+*Title*: Desktop Application for Visualization and Analysis of a Human Body 3D Deep Learning-Based Models.
 
-Authors: 
+*Authors*: 
 Aleksandra Kłos 
 Magdalena Leymańczyk
 Olga Czajkowska
 
-Supervisors:
+*Supervisors*:
 prof. nzw. dr hab. Maria Ganzha
 dr inż. Szymon Płotka

@@ -1,258 +1,284 @@
-import pandas as pd
-import os
-import matplotlib.pyplot as plt
+# === Dataloader.py ===
+# Below the module's details on how MONAI dataloader works:
+# https://docs.monai.io/en/0.5.2/_modules/monai/data/dataloader.html
+
+import pandas as pd 
 import nibabel as nib
-import warnings as wr
-import numpy as np
-import seaborn as sns
-
-wr.filterwarnings('ignore')
-
-file_path = r"C:\Users\magda\Desktop\Studia\INZYNIERKA\Totalsegmentator_dataset_v201\meta.csv"
-
-if not os.path.isfile(file_path):
-    print(f"File not found: {file_path}")
-    raise FileNotFoundError(f"The file {file_path} does not exist. Please check the file path and try again.")
-
-try:
-    df = pd.read_csv(file_path, delimiter=';', encoding='ISO-8859-1')
-except UnicodeDecodeError:
-    print("Error reading the CSV file. Check the file encoding or path.")
-    raise
-
-df.columns = df.columns.str.strip().str.encode('ascii', 'ignore').str.decode('ascii')
-
-print("Column names:", df.columns)
-
-if 'image_id' not in df.columns:
-    print("Column 'image_id' not found in DataFrame. Available columns:", df.columns)
-    raise KeyError("The column 'image_id' is missing from the DataFrame.")
-
-print(f"\nFirst 10 rows of the dataframe:")
-print(df.head(10))
-
-# Sort by image_id
-df = df.sort_values(by=['image_id'])
-
-def display_nifti(file_path):
-    try:
-        img = nib.load(file_path)
-        data = img.get_fdata()
-        print(f"\nFile: {file_path}")
-        print("CT scan dimensions:", data.shape)
-        print("Data range: min =", data.min(), "max =", data.max())
-
-        mid_sagittal = data.shape[0] // 2
-        mid_coronal = data.shape[1] // 2
-        mid_axial = data.shape[2] // 2
-
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-
-        # Axial slice
-        axes[0].imshow(data[:, :, mid_axial], cmap='gray', vmin=data.min(), vmax=data.max())
-        axes[0].set_title('Axial')
-        axes[0].axis('off')
-
-        # Coronal slice
-        axes[1].imshow(data[:, mid_coronal, :], cmap='gray', vmin=data.min(), vmax=data.max())
-        axes[1].set_title('Coronal')
-        axes[1].axis('off')
-
-        # Sagittal slice
-        axes[2].imshow(data[mid_sagittal, :, :], cmap='gray', vmin=data.min(), vmax=data.max())
-        axes[2].set_title('Sagittal')
-        axes[2].axis('off')
-
-        plt.show()
-    except Exception as e:
-        print(f"Error loading {file_path}: {e}")
-
-# central slices for the first 10 images
-for index, row in df.head(10).iterrows():
-    img_folder = os.path.join(r'C:\Users\magda\Desktop\Studia\INZYNIERKA\Totalsegmentator_dataset_v201', row['image_id'])
-    img_file_path = os.path.join(img_folder, 'ct.nii.gz')
-
-    if not os.path.isfile(img_file_path):
-        print(f"Image file not found: {img_file_path}")
-        continue
-
-    print(f"\n{row['image_id']}: Age: {row['age']}, Gender: {row['gender']}, Pathology: {row['pathology']}, Pathology Location: {row['pathology_location']}")
-    display_nifti(img_file_path)
-
-np.random.seed(55)
-sample_size = 10
-rd_sample = df.sample(n=sample_size)
-
-for index, row in rd_sample.iterrows():
-    img_folder = os.path.join(r'C:\Users\magda\Desktop\Studia\INZYNIERKA\Totalsegmentator_dataset_v201', row['image_id'])
-    img_file_path = os.path.join(img_folder, 'ct.nii.gz')
-
-    if not os.path.isfile(img_file_path):
-        print(f"Image file not found: {img_file_path}")
-        continue
-
-    print(f"\n{row['image_id']}: Age: {row['age']}, Gender: {row['gender']}, Pathology: {row['pathology']}, Pathology Location: {row['pathology_location']}")
-    display_nifti(img_file_path)
-
-# Exploratory Data Analysis (EDA)
-
-# Age distribution
-plt.figure(figsize=(12, 6))
-sns.histplot(df['age'], bins=32, kde=True, color='blue')
-plt.title('TotalSegmentator Age Distribution')
-plt.xlabel('Age')
-plt.ylabel('Count')
-plt.show()
-
-# Gender distribution
-gen_counts = df['gender'].value_counts()
-colors = ['lightblue', 'lightpink']
-
-plt.figure(figsize=(8, 8))
-plt.pie(
-    gen_counts,
-    labels=["Male", "Female"],
-    autopct="%1.1f%%",
-    startangle=140,
-    colors=colors,
-    wedgeprops={"linewidth": 1, "edgecolor": "black"}
+import os 
+import subprocess
+import glob 
+import torch 
+from torch.utils.data import Dataset, DataLoader
+from monai.transforms import (
+    Compose, EnsureChannelFirstd, EnsureTyped, LoadImaged, ScaleIntensityd,
+    RandSpatialCropd, RandRotate90d, RandAffined, RandZoomd, RandAxisFlipd,
+    RandGaussianNoised, Rand3DElasticd, ResizeWithPadOrCropd
 )
-plt.title('TotalSegmentator Gender Distribution')
-plt.show()
+from monai.data import Dataset, CacheDataset
 
-# Age distribution by gender
-age_bins = [0, 2, 4, 6, 9, 12, 14, 17, 20, 24, 26, 30, 40, 50, 60, 70, 80, 90, 100]
-age_labels = [
-    "1-2", "3-4", "5-6",
-    "7-9", "10-12", "13-14",
-    "15-17", "18-20", "21-24",
-    "25-26", "27-30", "31-40",
-    "41-50", "51-60", "61-70",
-    "71-80", "81-90", "91-100"
-]
+# We are working on the classification of various body parts, grouped into 117 anatomical structures. 
+# Our aim is to simplify things by combining masks for these structures into single binary mask (eg. lung lobes into whole lung)
+# the exact grouping is based on the README here: https://github.com/openmedlab/Awesome-Medical-Dataset/blob/main/resources/TotalSegmentator_v2.md
 
-df['age_group'] = pd.cut(df['age'], bins=age_bins, labels=age_labels, right=True)
+# Note that for some classes the names differ from the standarized anatomical names. The mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
 
-plt.figure(figsize=(12, 6))
-sns.histplot(
-    data=df,
-    x='age_group',
-    hue='gender',
-    shrink=0.9,
-    multiple='dodge',
-    palette={'m': 'lightblue', 'f': 'lightpink'},
-    stat='count'
-)
-plt.title('TotalSegmentator Age Distribution by Gender')
-plt.xlabel('Age group')
-plt.ylabel('Count')
-plt.legend(title='Gender:', labels=['Female', 'Male'], loc='upper right')
-plt.show()
+main_classes_CT = {
+"skeleton": [
+'skull', 'clavicula_left', 'clavicula_right', 'humerus_left', 'humerus_right', 'scapula_left', 'scapula_right', 'sternum',
+'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5', 'rib_left_6', 'rib_left_7', 'rib_left_8',
+'rib_left_9', 'rib_left_10', 'rib_left_11', 'rib_left_12', 'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4',
+'rib_right_5', 'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9', 'rib_right_10', 'rib_right_11', 'rib_right_12',
+'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4', 'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 'vertebrae_L1',
+'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5', 'vertebrae_S1', 'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3',
+'vertebrae_T4', 'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8', 'vertebrae_T9', 'vertebrae_T10',
+'vertebrae_T11', 'costal_cartilages', 'vertebrae_T12', 'hip_left', 'hip_right', 'sacrum', 'femur_left', 'femur_right'],
 
-# Pathology distribution
-path_counts = df['pathology'].value_counts()
-print("\nPathology distribution:")
-print(path_counts)
+"cardiovascular": [
+'common_cartoid_artery_left', 'common_cartoid_artery_right', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right',
+'subclavian_artery_left', 'subclavian_artery_right', 'brachiocephalic_trunk', 'superior_vena_cava', 'pulmonary_vein',
+'artial_appendage_left', 'aorta', 'heart', 'portal_vein_and_splenic_vein', 'inferior_vena_cava', 'iliac_artery_left',
+'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right'],
 
-plt.figure(figsize=(12, 6))
-path_counts.plot(kind='bar', color='lightgreen')
-plt.title('TotalSegmentator Pathology Distribution')
-plt.xlabel('Pathology')
-plt.ylabel('Count')
-plt.show()
-
-# Split distribution
-train_count = len(df[df['split'] == 'train'])
-validation_count = len(df[df['split'] == 'val'])
-test_count = len(df[df['split'] == 'test'])
-
-print("TotalSegmentator split distribution:")
-print(f"Training set: {train_count}")
-print(f"Validation set: {validation_count}")
-print(f"Testing set: {test_count}")
+"gastrointestinal":[
+'espohangus', 'stomach', 'duodenum', 'small_bowel', 'colon', 'urinary_bladder'],
 
 
+"muscles":[
+'autochthon_left', 'autochthon_right', 'iliopsoas_left', 'iliopsoas_right', 'gluteus_minimus_left', 
+'gluteus_minimus_right', 'gluteus_medius_left', 'gluteus_medius_right', 'gluteus_maximus_left', 
+'gluteus_maximus_right'],
 
-# import os
-# import nibabel as nib
-# import torch
-# from torch.utils.data import Dataset
-# import matplotlib.pyplot as plt
-# from monai.transforms import Compose, Lambda
-#
-# def scale_intensity_range(tensor, a_min, a_max, b_min, b_max, clip=False):
-#     """
-#     Scale intensity range of a tensor from [a_min, a_max] to [b_min, b_max].
-#     """
-#     # Avoid division by zero if a_min equals a_max
-#     if a_max == a_min:
-#         return tensor * (b_max - b_min) + b_min
-#     tensor = (tensor - a_min) / (a_max - a_min) * (b_max - b_min) + b_min
-#     if clip:
-#         tensor = torch.clamp(tensor, b_min, b_max)
-#     return tensor
-#
-# class NiftiDataset(Dataset):
-#     def __init__(self, file_path, transforms=None):
-#         self.file_path = file_path
-#         self.transforms = transforms
-#         self.data = self.load_nifti_file(file_path)
-#
-#     def load_nifti_file(self, file_path):
-#         nifti_img = nib.load(file_path)
-#         nifti_data = nifti_img.get_fdata()
-#         return nifti_data
-#
-#     def __len__(self):
-#         return self.data.shape[2]
-#
-#     def __getitem__(self, idx):
-#         slice_data = self.data[:, :, idx]
-#         slice_data = torch.tensor(slice_data, dtype=torch.float32)  # Convert to tensor
-#         if self.transforms:
-#             slice_data = self.transforms(slice_data)
-#         return slice_data
-#
-# # Define the transformations
-# transforms = Compose([
-#     Lambda(lambda x: x.unsqueeze(0)),  # Add channel dimension
-#     Lambda(lambda x: scale_intensity_range(x, a_min=-1000, a_max=1000, b_min=0.0, b_max=1.0, clip=True))
-# ])
-#
-# file_path = r"C:\Users\magda\Desktop\Studia\INZYNIERKA\Totalsegmentator_dataset_v201\s0003\segmentations\aorta.nii.gz"
-#
-# # Load the dataset
-# dataset = NiftiDataset(file_path, transforms=transforms)
-# print(f"Full dataset shape: {dataset.data.shape}")
-#
-# # Check the range of the original data
-# original_min = dataset.data.min()
-# original_max = dataset.data.max()
-# print(f"Original data range: Min = {original_min}, Max = {original_max}")
-#
-# # Calculate the indices for the middle third of the dataset
-# total_slices = len(dataset)
-# start_idx = total_slices // 3
-# end_idx = 2 * (total_slices // 3)
-# middle_slices = list(range(start_idx, end_idx))
-#
-# # Filter non-zero slices within the middle third
-# non_zero_slices = []
-# for i in middle_slices:
-#     slice_data = dataset[i]
-#     non_zero_count = torch.count_nonzero(slice_data).item()
-#     if non_zero_count > 0:
-#         non_zero_slices.append(i)
-#
-# print(f"Non-zero slices in the middle third: {non_zero_slices}")
-#
-# # Visualize up to 6 non-zero slices from the middle third
-# for idx in non_zero_slices[:6]:
-#     slice_data = dataset[idx]
-#     print(f"Visualizing non-zero slice {idx + 1}")
-#     # Print min and max values of slice_data to debug scaling
-#     print(f"Slice {idx + 1} - Min value: {slice_data.min().item()}, Max value: {slice_data.max().item()}")
-#     plt.imshow(slice_data.squeeze().numpy(), cmap='gray')
-#     plt.title(f"Slice {idx + 1}")
-#     plt.axis('off')  # Hide axis for clearer visualization
-#     plt.show()
+"others":[
+'brain', 'spinal_cord', 'thyroid_gland', 'trachea', 'lung_upper_lobe_left', 'lung_upper_lobe_right', 
+'lung_middle_lobe_right', 'lung_lower_lobe_left', 'lung_lower_lobe_right','adrenal_gland_left', 
+'adrenal_gland_right', 'spleen', 'liver', 'gallbladder', 'kidney_left', 'kidney_right', 'kidney_cyst_left',
+'kidney_cyst_right', 'pancreas', 'prostate']
+
+}
+
+
+# class for loading training, validation images and corresponding segmentations
+# we decided to keep the testing set separate since the data processing in this phase differ from one in training and validation steps due to lack of labels
+
+class TotalSeg_Dataset_Tr_Val(Dataset):
+
+    def __init__(self, img_paths, lbl_paths, cmb_masks = False, transform = None): # initialization the dataset with image and label paths and any transforms 
+        assert len(img_paths) == len(lbl_paths), 'ERROR: Mismatched length of images and labels' # labels and images must have the same length
+        self.img_paths = img_paths
+        self.lbl_paths = lbl_paths
+        self.cmb_masks = cmb_masks
+        self.transform = transform
+        
+
+    def __len__(self): # returns tot. number of images 
+        return len(self.img_paths)
+
+    def __getitem__(self, idx): # loading image and label paths for given index 
+        img_path = self.img_paths[idx]  # get img file path for current index 
+        lbl_path = self.lbl_paths[idx]  # -=- for lbl 
+
+        # loading img and lbl data
+        img = nib.load(img_path).get_fdata()
+        lbl = nib.load(lbl_path).get_fdata()
+
+        if self.cmb_masks: # case when need to combine mask into single label 
+            cmb_lbl_path = self.combine_masks(lbl_path)
+            lbl_path = cmb_lbl_path
+
+        data = { 'image': img, 'label': lbl } # organizing data into a dictionary (in case we want to add more data later)
+
+        if self.transform is not None: # if transform is provided 
+            data = self.transform(data) # applyng any transforms 
+
+        return data 
+
+
+    # this function combines individual masks into a single binary mask. 
+    def combine_masks(self, lbl_dir): 
+        out_path = os.path.join(lbl_dir, 'combined_mask.nii.gz')  # https://docs.python.org/3/library/os.path.html
+
+        if not os.path.exists(out_path):  # check if the combined mask already exists to avoid recalculation
+            mask_files = glob.glob(os.path.join(lbl_dir, '*.nii.gz')) # get all nii.gz files (mask files)
+            combined_mask = None
+
+            # assiging uniqe label, numeric one, to each class in order to distinguish it 
+            class_labels = {class_name: idx + 1 for idx, class_name in enumerate(main_classes_CT)}
+            
+            # now, iterate through all anatomical groups and combine their structure masks 
+            for class_group, structures in main_classes_CT.items():
+                for struct in structures:
+                    structure_mask_file = os.path.join(label_dir, f'{struct}.nii.gz') 
+
+                    # checking if this specific structure's mask exists 
+                    if os.path.exists(structure_mask_file):
+                        mask = nib.load(structure_mask_file).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data
+
+                        if combined_mask is None: 
+                            combined_mask = np.zeros_like(mask) # https://numpy.org/doc/stable/reference/generated/numpy.zeros_like.html - generating empty mask
+
+                        combined_mask[mask > 0] = class_labels[class_group] # any non-zero value in the current mask will be assigned to the class label
+
+            # covert the combined mask into NIfTI format and save it
+            combined_mask_img = nib.Nifti1Image(combined_mask.astype(np.uint8), affine = nib.load(mask_files[0].affine))
+            nib.save(combined_mask_img, out_path)
+
+
+        return out_path # return the path to the combined mask file
+
+
+# class for loading test images 
+
+class TotalSeg_Dataset_Ts(Dataset):
+
+    def __init__(self,img_paths, transform = None): # initialization the dataset with image paths and any transforms 
+        self.img_paths = img_paths 
+        self.transform = transform 
+
+    def __len__(self): # returns tot. number of images 
+        return len(self.img_paths)
+
+    def __getitem__(self, idx): # loading image paths for given index 
+        img_path = self.img_paths[idx]   # get img file path for current index 
+        img = nib.load(img_path).get_fdata()  # load img data with NIfTI format
+
+    
+        data = {'image': img } # organizing data into a dictionary (in case we want to add more data later)
+
+        if self.transform is not None: # if transform is provided 
+            data = self.transform(data) # applying any transform 
+
+        return data
+
+
+# class for converting masks to binary - 0 or 1
+# it converts a non-zero label values to 1, turning multi-class sementation into binary segmentation (presence vs. absence)
+# https://medium.com/@mhamdaan/multi-class-semantic-segmentation-with-u-net-pytorch-ee81a66bba89
+# https://www.sciencedirect.com/science/article/pii/S0167839621000182
+
+class Convert_To_Binary: 
+    def __call__(self, key): # key - dictionary with keys 'img' and 'label'
+        key['label'] = torch.where(key['label']> 0, 1, 0)
+        return key 
+
+    # function that loads and preapres data for training, validation and testing 
+    """
+    base_dir: base directory where img data is stored 
+    meta_csv: path to csv file containing meta information for train/test/val splits
+    cmb_masks: if True, combines individual masks into a single binary mask. If False, otherwise
+    batch_size: no. of samples per batch 
+    num_workers: no. of workers for loading data 
+    """
+def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, num_workers = 4):
+        # helper function to get paths for imgs and their corresponding lbl directories 
+        def get_img_lbl_paths(ids):
+            img = [] # list of img paths 
+            lbl = [] # list of lbl paths 
+            for img_id in ids:
+                img_path = os.path.join(base_dir, img_id, 'ct.nii.gz')
+                lbl_dir = os.path.join(base_dir, img_id, 'segmentations')
+                if os.path.exists(img_path) and os.path.exists(lbl_dir):
+                    img.append(img_path)
+                    lbl.append(lbl_dir)
+                else:
+                    print(f'ERROR: missing files for {img_id}. Image path: {img_path}, label path: {lbl_dir}')
+            return img, lbl
+
+        # load meta.csv file to determine train/test/val split
+        try:
+            meta_df = pd.read_csv(meta_csv, delimiter = ';')
+            print(f'SUCCESS. Metadata has been loaded from {meta_csv}.')
+        except Exception as e:
+            print(f'ERROR. Metadata failed to load from {meta_csv}.')
+            return None, None, None 
+        
+
+        # Let us show the first 10 rows to see whether the metadata is loaded correctly
+        print('Metadata preview:')
+        print(meta_df.head(10))
+
+
+
+        # now after confirming, extract train/test/val IDs 
+        train_ids = meta_df[meta_df['split'] == 'train']['image_id'].tolist()
+        val_ids = meta_df[meta_df['split'] == 'val']['image_id'].tolist()
+        test_ids = meta_df[meta_df['split'] == 'test']['image_id'].tolist()
+
+        print(f'Training: {len(train_ids)} images, Validation: {len(val_ids)} images, Testing: {len(test_ids)} images.')
+
+        # getting img and lbl paths for each split 
+        train_img, train_lbl = get_img_lbl_paths(train_ids)
+        val_img, val_lbl = get_img_lbl_paths(val_ids)
+        test_img, _ = get_img_lbl_paths(test_ids) # no labels for testing set 
+
+        # Another check: printing image-label pairs for training and validation splits
+        print(f'\n LOADED {len(train_img)} training images.')
+        for img, lbl in zip(train_img, train_lbl):
+            print(f'Training Image: {img} | Label: {lbl}')
+        
+        print(f'\n LOADED {len(val_img)} validation images.')
+        for img, lbl in zip(val_img, val_lbl):
+            print(f'Validation Image: {img} | Label: {lbl}')
+
+        #  printing image pairs for testing split
+        print(f"\n Number of test images: {len(test_img)}")
+
+        for img in test_img:
+            print(f"Image: {img}")
+
+
+        # defining transforms for training, validation and testing set 
+        train_transforms = Compose([
+            EnsureChannelFirstd(keys=['image', 'label']),
+            EnsureTyped(keys=['image', 'label']),
+            LoadImaged(keys= ['image', 'label']),
+            ScaleIntensityd(keys=['image']),
+            RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
+            RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
+            RandAffined(keys=['image'], prob = 0.5),
+            RandZoomd(keys=['image', 'label'], prob = 0.7, max_zoom = 1.2, min_zoom = 1.1),
+            RandAxisFlipd(keys = ['image', 'label'], prob = 0.5),
+            RandGaussianNoised(keys = ['image'], prob = 0.5),
+            Rand3DElasticd(keys=['image, label'], prob = 0.2, sigma_range = (5, 5, 5), magnitude_range= (1.1, 2), mode = ['bilinear, nearest']),
+            ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
+            Convert_To_Binary()
+        ])
+
+        val_transforms = Compose([
+            EnsureChannelFirstd(keys=['image', 'label']),
+            EnsureTyped(keys=['image', 'label']),
+            LoadImaged(keys= ['image', 'label']),
+            ScaleIntensityd(keys=['image']),
+            ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
+            Convert_To_Binary()
+        ])
+
+
+        test_transforms = Compose([
+        LoadImaged(keys=['image']),
+        EnsureChannelFirstd(keys=['image']),
+        ScaleIntensityd(keys=['image']),
+            ResizeWithPadOrCropd(keys=['image'], spatial_size=(128, 128, 128)),  # uniform size
+        EnsureTyped(keys=['image']),
+        ])
+
+        # creating datasets and dataloaders for each split 
+        train_ds = TotalSeg_Dataset_Tr_Val(train_img, train_lbl, cmb_masks = combine_masks, transform= train_transforms)
+        val_ds = TotalSeg_Dataset_Tr_Val(val_img, val_lbl, cmb_masks = combine_masks, transform= train_transforms)
+        test_ds = TotalSeg_Dataset_Ts(test_img, transform= train_transforms)
+
+        train_loader = DataLoader(train_ds, batch_size = batch_size, shuffle = False, num_workers = num_workers)
+        val_loader = DataLoader(val_ds, batch_size = batch_size, shuffle = False, num_workers = num_workers)
+        test_loader = DataLoader(test_ds, batch_size = batch_size, shuffle = False, num_workers = num_workers)
+
+        return train_loader, val_loader, test_loader
+
+if  __name__ == "__main__":
+    base_dir = "Totalsegmentator_dataset_v201"
+    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
+
+# WARNING: since the output is big, a good practice is to type in the terminal: 
+# python dataloader.py > output.txt 
+
+
+        

@@ -164,6 +164,7 @@ def render_3d(widget):
 #TODO: change colors to be more distinct and maybe defined in a shorter way
 
     i = 0
+    #path to segmentations folder with .nii.gz files with segmented organs
     initial_path = 'C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/s0001/segmentations'
     for path in listdir(initial_path):
         vpath = initial_path + '/' + path

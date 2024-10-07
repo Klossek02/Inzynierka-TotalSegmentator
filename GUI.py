@@ -76,7 +76,7 @@ class MedicalImageViewer(QMainWindow):
         inner3_layout = QVBoxLayout()
         inner3_layout.addWidget(self.vtk_widget)
 
-        self.plotter = demo.render_3d(self.vtk_widget)
+        self.plotter = demo.render_3d(self.vtk_widget, 'C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/s0001/segmentations') #path to some example segmentations file, the entire command can be removed if needed
         self.plotter.show()
 
         self.image_collection0.append(QPixmap('C:/Users/Dell/Desktop/studia/6/Artificial Intelligence Fundamentals/example images/Dim0_Slice128.png'))#initial image, can be anything
@@ -155,11 +155,15 @@ class MedicalImageViewer(QMainWindow):
 
     def on_open_file(self):
         print("Open file action triggered") # logic for opening a file 
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                  "All Files (*);;Python Files (*.py)")
-        if fileName:
+        #fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                  #"All Files (*);;Python Files (*.py)")
+        directoryName = QFileDialog.getExistingDirectory(self, "QFileDialog")
+        if directoryName:
+            fileName = directoryName + '/ct.nii.gz'
+            print(fileName)
+            directoryName = directoryName + '/segmentations'
             #transform3d(fileName)
-            self.image_placeholder3 = demo.render_3d(self.image_placeholder3)
+            #self.image_placeholder3 = demo.render_3d(self.image_placeholder3)
             imageDim0, imageDim1, imageDim2 = convert_nifti(fileName)
             self.slider.setSliderPosition(0)
             self.image_collection0 = imageDim0
@@ -175,6 +179,8 @@ class MedicalImageViewer(QMainWindow):
             self.image_placeholder1.setPixmap(self.image_collection1[0])
             self.image_placeholder2.setPixmap(self.image_collection2[0])
 
+            self.plotter = demo.render_3d(self.vtk_widget, directoryName)
+            self.plotter.show()
 
 
     def on_save_file(self):

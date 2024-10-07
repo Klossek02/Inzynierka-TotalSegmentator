@@ -17,7 +17,7 @@ def convert_to_stl(path):
         obj_3d.vectors[i] = verts[f]
     obj_3d.save('stl_test.stl')
 
-def render_3d(widget):
+def render_3d(widget, initial_path):
 
     volume = []
     colors_rgb = [

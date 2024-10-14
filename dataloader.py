@@ -77,8 +77,22 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         img_path = self.img_paths[idx]  # get img file path for current index 
         lbl_path = self.lbl_paths[idx]  # -=- for lbl 
 
-        # loading img and lbl data
+        # loading image data 
         img = nib.load(img_path).get_fdata()
+
+        # since labels have a default path defined as: "Totalsegmentator_dataset_v201\s****\segmentations",
+        # we need to ensure that we can access the *.nii.gz files from that directory as these will be necessary for model training, 
+        # not the folder 'segmentations' itself. 
+        
+        lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz'))
+
+        # checking if the label file exists 
+        if len(lbl_files) == 0:
+            raise FileNotFoundError(f'ERROR: missing label for {img_path}. Cannot work out file type.')
+
+        lbl_path = lbl_files[0] # choosing the first label file for tesing purposes: seeing if the aforementioned functionality works properly
+
+        # loading label data
         lbl = nib.load(lbl_path).get_fdata()
 
         if self.cmb_masks: # case when need to combine mask into single label 
@@ -176,6 +190,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
             for img_id in ids:
                 img_path = os.path.join(base_dir, img_id, 'ct.nii.gz')
                 lbl_dir = os.path.join(base_dir, img_id, 'segmentations')
+
                 if os.path.exists(img_path) and os.path.exists(lbl_dir):
                     img.append(img_path)
                     lbl.append(lbl_dir)
@@ -192,7 +207,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
             return None, None, None 
         
 
-        # Let us show the first 10 rows to see whether the metadata is loaded correctly
+        # let us show the first 10 rows to see whether the metadata is loaded correctly
         print('Metadata preview:')
         print(meta_df.head(10))
 

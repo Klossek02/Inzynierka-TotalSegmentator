@@ -4,6 +4,7 @@
 
 import pandas as pd 
 import nibabel as nib
+import numpy as np
 import os 
 import subprocess
 import glob 
@@ -85,24 +86,26 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         # not the folder 'segmentations' itself. 
         
         lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz'))
+        print('lbl_files:', lbl_files)
 
         # checking if the label file exists 
         if len(lbl_files) == 0:
             raise FileNotFoundError(f'ERROR: missing label for {img_path}. Cannot work out file type.')
 
-        lbl_path = lbl_files[0] # choosing the first label file for tesing purposes: seeing if the aforementioned functionality works properly
-
-        # loading label data
-        lbl = nib.load(lbl_path).get_fdata()
-
         if self.cmb_masks: # case when need to combine mask into single label 
             cmb_lbl_path = self.combine_masks(lbl_path)
             lbl_path = cmb_lbl_path
 
-        data = { 'image': img, 'label': lbl } # organizing data into a dictionary (in case we want to add more data later)
+        #LoadImaged transform can accept file paths instead of data so I don't load the data beforehand
+        data = { 'image': img_path, 'label': lbl_files } # organizing data into a dictionary (in case we want to add more data later)
 
-        if self.transform is not None: # if transform is provided 
-            data = self.transform(data) # applyng any transforms 
+        if self.transform is not None: # if transform is provided
+            try:
+                data = self.transform(data) # applying any transforms
+                print('image size:', data['image'].size(), ' label size:', data['label'].size())
+            except RuntimeError as e:
+                print(data)
+                return {'image': None, 'label': None}
 
         return data 
 
@@ -121,7 +124,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
             # now, iterate through all anatomical groups and combine their structure masks 
             for class_group, structures in main_classes_CT.items():
                 for struct in structures:
-                    structure_mask_file = os.path.join(label_dir, f'{struct}.nii.gz') 
+                    structure_mask_file = os.path.join(lbl_dir, f'{struct}.nii.gz')
 
                     # checking if this specific structure's mask exists 
                     if os.path.exists(structure_mask_file):
@@ -165,7 +168,7 @@ class TotalSeg_Dataset_Ts(Dataset):
 
 
 # class for converting masks to binary - 0 or 1
-# it converts a non-zero label values to 1, turning multi-class sementation into binary segmentation (presence vs. absence)
+# it converts a non-zero label values to 1, turning multi-class segmentation into binary segmentation (presence vs. absence)
 # https://medium.com/@mhamdaan/multi-class-semantic-segmentation-with-u-net-pytorch-ee81a66bba89
 # https://www.sciencedirect.com/science/article/pii/S0167839621000182
 
@@ -243,25 +246,25 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
 
         # defining transforms for training, validation and testing set 
         train_transforms = Compose([
+            LoadImaged(keys=['image', 'label']),
             EnsureChannelFirstd(keys=['image', 'label']),
             EnsureTyped(keys=['image', 'label']),
-            LoadImaged(keys= ['image', 'label']),
             ScaleIntensityd(keys=['image']),
-            RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
-            RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
+            #RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
+            #RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
             RandAffined(keys=['image'], prob = 0.5),
             RandZoomd(keys=['image', 'label'], prob = 0.7, max_zoom = 1.2, min_zoom = 1.1),
-            RandAxisFlipd(keys = ['image', 'label'], prob = 0.5),
+            #RandAxisFlipd(keys = ['image', 'label'], prob = 0.5),
             RandGaussianNoised(keys = ['image'], prob = 0.5),
-            Rand3DElasticd(keys=['image, label'], prob = 0.2, sigma_range = (5, 5, 5), magnitude_range= (1.1, 2), mode = ['bilinear, nearest']),
-            ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
+            #Rand3DElasticd(keys=['image, label'], prob = 0.2, sigma_range = (5, 5, 5), magnitude_range= (1.1, 2), mode = ['bilinear, nearest']),
+            #ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128), random_size = False),
             Convert_To_Binary()
         ])
 
         val_transforms = Compose([
+            LoadImaged(keys=['image', 'label']),
             EnsureChannelFirstd(keys=['image', 'label']),
             EnsureTyped(keys=['image', 'label']),
-            LoadImaged(keys= ['image', 'label']),
             ScaleIntensityd(keys=['image']),
             ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
             Convert_To_Binary()
@@ -288,8 +291,8 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
         return train_loader, val_loader, test_loader
 
 if  __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201"
-    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
+    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
 # WARNING: since the output is big, a good practice is to type in the terminal: 

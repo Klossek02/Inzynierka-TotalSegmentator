@@ -35,13 +35,13 @@ main_classes_CT = {
 'vertebrae_T11', 'costal_cartilages', 'vertebrae_T12', 'hip_left', 'hip_right', 'sacrum', 'femur_left', 'femur_right'],
 
 "cardiovascular": [
-'common_cartoid_artery_left', 'common_cartoid_artery_right', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right',
+'common_carotid_artery_left', 'common_carotid_artery_right', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right',
 'subclavian_artery_left', 'subclavian_artery_right', 'brachiocephalic_trunk', 'superior_vena_cava', 'pulmonary_vein',
-'artial_appendage_left', 'aorta', 'heart', 'portal_vein_and_splenic_vein', 'inferior_vena_cava', 'iliac_artery_left',
+'atrial_appendage_left', 'aorta', 'heart', 'portal_vein_and_splenic_vein', 'inferior_vena_cava', 'iliac_artery_left',
 'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right'],
 
 "gastrointestinal":[
-'espohangus', 'stomach', 'duodenum', 'small_bowel', 'colon', 'urinary_bladder'],
+'esophangus', 'stomach', 'duodenum', 'small_bowel', 'colon', 'urinary_bladder'],
 
 
 "muscles":[
@@ -78,36 +78,37 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         img_path = self.img_paths[idx]  # get img file path for current index 
         lbl_path = self.lbl_paths[idx]  # -=- for lbl 
 
-        # loading image data 
-        img = nib.load(img_path).get_fdata()
+        try:
+            # loading image data 
+            img = nib.load(img_path).get_fdata()
 
-        # since labels have a default path defined as: "Totalsegmentator_dataset_v201\s****\segmentations",
-        # we need to ensure that we can access the *.nii.gz files from that directory as these will be necessary for model training, 
-        # not the folder 'segmentations' itself. 
+            # since labels have a default path defined as: "Totalsegmentator_dataset_v201\s****\segmentations",
+            # we need to ensure that we can access the *.nii.gz files from that directory as these will be necessary for model training, 
+            # not the folder 'segmentations' itself. 
         
-        lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz'))
-        print('lbl_files:', lbl_files)
+            lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz'))
+            print('lbl_files:', lbl_files)
 
-        # checking if the label file exists 
-        if len(lbl_files) == 0:
-            raise FileNotFoundError(f'ERROR: missing label for {img_path}. Cannot work out file type.')
+            # checking if the label file exists 
+            if len(lbl_files) == 0:
+                raise FileNotFoundError(f'ERROR: missing label for {img_path}. Cannot work out file type.')
 
-        if self.cmb_masks: # case when need to combine mask into single label 
-            cmb_lbl_path = self.combine_masks(lbl_path)
-            lbl_path = cmb_lbl_path
+            if self.cmb_masks: # case when need to combine mask into single label 
+                cmb_lbl_path = self.combine_masks(lbl_path)
+                lbl_path = cmb_lbl_path
 
-        #LoadImaged transform can accept file paths instead of data so I don't load the data beforehand
-        data = { 'image': img_path, 'label': lbl_files } # organizing data into a dictionary (in case we want to add more data later)
+            # LoadImaged transform can accept file paths instead of data so I don't load the data beforehand
+            data = { 'image': img_path, 'label': lbl_files } # organizing data into a dictionary (in case we want to add more data later)
 
-        if self.transform is not None: # if transform is provided
-            try:
+            if self.transform is not None: # if transform is provided
                 data = self.transform(data) # applying any transforms
                 print('image size:', data['image'].size(), ' label size:', data['label'].size())
-            except RuntimeError as e:
-                print(data)
-                return {'image': None, 'label': None}
+            
+            return data
 
-        return data 
+        except Exception as e:
+            print(f'ERROR: incorrect processing index {idx}: {e}.')
+        return {'image': None, 'label': None} 
 
 
     # this function combines individual masks into a single binary mask. 
@@ -124,7 +125,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
             # now, iterate through all anatomical groups and combine their structure masks 
             for class_group, structures in main_classes_CT.items():
                 for struct in structures:
-                    structure_mask_file = os.path.join(lbl_dir, f'{struct}.nii.gz')
+                    structure_mask_file = os.path.join(lbl_dir, f'{struct}.nii.gz') 
 
                     # checking if this specific structure's mask exists 
                     if os.path.exists(structure_mask_file):
@@ -144,7 +145,6 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
 
 
 # class for loading test images 
-
 class TotalSeg_Dataset_Ts(Dataset):
 
     def __init__(self,img_paths, transform = None): # initialization the dataset with image paths and any transforms 
@@ -185,7 +185,7 @@ class Convert_To_Binary:
     batch_size: no. of samples per batch 
     num_workers: no. of workers for loading data 
     """
-def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, num_workers = 4):
+def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, num_workers = 2):
         # helper function to get paths for imgs and their corresponding lbl directories 
         def get_img_lbl_paths(ids):
             img = [] # list of img paths 
@@ -213,7 +213,6 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
         # let us show the first 10 rows to see whether the metadata is loaded correctly
         print('Metadata preview:')
         print(meta_df.head(10))
-
 
 
         # now after confirming, extract train/test/val IDs 
@@ -281,8 +280,8 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
 
         # creating datasets and dataloaders for each split 
         train_ds = TotalSeg_Dataset_Tr_Val(train_img, train_lbl, cmb_masks = combine_masks, transform= train_transforms)
-        val_ds = TotalSeg_Dataset_Tr_Val(val_img, val_lbl, cmb_masks = combine_masks, transform= train_transforms)
-        test_ds = TotalSeg_Dataset_Ts(test_img, transform= train_transforms)
+        val_ds = TotalSeg_Dataset_Tr_Val(val_img, val_lbl, cmb_masks = combine_masks, transform= val_transforms)
+        test_ds = TotalSeg_Dataset_Ts(test_img, transform= test_transforms)
 
         train_loader = DataLoader(train_ds, batch_size = batch_size, shuffle = False, num_workers = num_workers)
         val_loader = DataLoader(val_ds, batch_size = batch_size, shuffle = False, num_workers = num_workers)
@@ -291,8 +290,8 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = False, batch_size = 1, n
         return train_loader, val_loader, test_loader
 
 if  __name__ == "__main__":
-    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
-    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "Totalsegmentator_dataset_v201" # here, the relative path used 
+    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
 # WARNING: since the output is big, a good practice is to type in the terminal: 

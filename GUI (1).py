@@ -14,7 +14,7 @@ from monai.transforms import Compose, Resize
 import demo
 
 
-# function created to save predicted volume as NIftI file
+# saving predicted volume as NIftI file
 def save_nifti(volume, path, index=0):
     volume = np.array(volume.detach().cpu()[0], dtype=np.float32)
     volume = nib.Nifti1Image(volume, np.eye(4))
@@ -29,14 +29,14 @@ class MedicalImageViewer(QMainWindow):
     def initUI(self):
         self.setWindowTitle('SegMed 1.2')
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
-        QToolTip.setFont(QFont('SansSerif', 10))  # Font for tooltips
+        QToolTip.setFont(QFont('SansSerif', 10))  # font for tooltips
 
-        # Get the screen geometry
+        # screen geometry
         screen = QApplication.desktop().screenGeometry()
         screen_width = screen.width()
         screen_height = screen.height()
 
-        # Set the window's maximum size to the screen size
+        # set the window's maximum size to the screen size
         self.setMaximumSize(screen_width, screen_height)
 
         self.setStyleSheet("""
@@ -97,13 +97,13 @@ class MedicalImageViewer(QMainWindow):
             }
         """)
 
-        self.setupMenuBar()  # Menu bar
+        self.setupMenuBar()  # menu bar
 
-        # Main layout
+        # main layout
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignCenter)
 
-        # Grid layout for the visualizations
+        # grid layout for the visualizations
         grid_layout = QGridLayout()
         grid_layout.setAlignment(Qt.AlignCenter)
 
@@ -111,7 +111,7 @@ class MedicalImageViewer(QMainWindow):
         self.image_collection1 = []
         self.image_collection2 = []
 
-        # Image placeholders with fixed size policies
+        # image placeholders with fixed size policies
         self.image_placeholder = QLabel()
         self.image_placeholder.setFrameStyle(QFrame.StyledPanel)
         self.image_placeholder.setAlignment(Qt.AlignCenter)
@@ -137,7 +137,7 @@ class MedicalImageViewer(QMainWindow):
         self.vtk_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.vtk_widget.setFixedSize(400, 300)
 
-        # Sliders
+        # sliders
         self.slider = QSlider(Qt.Horizontal)
         self.slider.valueChanged.connect(self.on_slider_move)
         self.slider.setStyleSheet("QSlider { margin-top: 10px; }")
@@ -156,7 +156,7 @@ class MedicalImageViewer(QMainWindow):
         self.slider2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.slider2.setFixedWidth(400)
 
-        # Inner layouts for each visualization and slider
+        # inner layouts for each visualization and slider
         inner_layout = QVBoxLayout()
         inner_layout.addWidget(self.image_placeholder)
         inner_layout.addWidget(self.slider)
@@ -176,22 +176,22 @@ class MedicalImageViewer(QMainWindow):
         inner3_layout.addWidget(self.vtk_widget)
         inner3_layout.setAlignment(Qt.AlignCenter)
 
-        # Add inner layouts to grid layout
+        # adding inner layouts to grid layout
         grid_layout.addLayout(inner_layout, 0, 0)
         grid_layout.addLayout(inner1_layout, 0, 1)
         grid_layout.addLayout(inner2_layout, 1, 0)
         grid_layout.addLayout(inner3_layout, 1, 1)
 
-        # Wrap the grid layout into a QWidget
+        # wrapping the grid layout into a QWidget
         grid_widget = QWidget()
         grid_widget.setLayout(grid_layout)
         grid_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         grid_widget.adjustSize()  # Adjust size to fit content
 
-        # Add the grid widget to the main layout
+        # adding the grid widget to the main layout
         main_layout.addWidget(grid_widget, alignment=Qt.AlignCenter)
 
-        # Add error log panel
+        # error log panel
         self.error_log = QPlainTextEdit()
         self.error_log.setReadOnly(True)
         self.error_log.setFixedHeight(150)
@@ -201,12 +201,12 @@ class MedicalImageViewer(QMainWindow):
 
         main_layout.addWidget(self.error_log)
 
-        # Set main layout to central widget
+        # seting main layout to central widget
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-        # Load initial images
+        # loading some exemple images 
         self.image_collection0.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
         self.image_placeholder.setPixmap(self.image_collection0[0])
         self.image_collection1.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
@@ -214,34 +214,34 @@ class MedicalImageViewer(QMainWindow):
         self.image_collection2.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
         self.image_placeholder2.setPixmap(self.image_collection2[0])
 
-        ## Render 3D visualization within the vtk_widget
+        ## rendering 3D visualization within the vtk_widget
         self.render_3d_visualization()
 
-        # Adjust the window size based on content
+        # adjusting the window size
         self.adjustSize()
 
-        # Ensure the window does not exceed the screen size
+        # making sure the window does not exceed the screen size
         window_size = self.size()
         if window_size.width() > screen_width or window_size.height() > screen_height:
             self.resize(screen_width, screen_height)
 
-        # Center the window on the screen
+        # centering the window 
         self.move((screen_width - self.width()) // 2, (screen_height - self.height()) // 2)
 
         self.show()
 
     def render_3d_visualization(self):
-        # Use the vtk_widget (QtInteractor) to render the 3D visualization
-        # Assuming 'demo.render_3d' sets up the plotter with the vtk_widget
+        # now, we use vtk_widget (QtInteractor) to render the 3D visualization
+        # Ww also have to assume that 'demo.render_3d' sets up the plotter with the vtk_widget
         try:
-            # Clear any existing plots
+            # first, let us clear the vtk_widget of any previous 3D visualization (if existis)
             self.vtk_widget.clear()
 
-            # Call your custom render function
+            # Then, let us call a self-created render function
             demo.render_3d(self.vtk_widget,
                            'C:/Users/magda/Desktop/Studia/INZYNIERKA/Totalsegmentator_dataset_v201/s0001/segmentations')
 
-            # Render the widget
+            # rendering the widget
             self.vtk_widget.update()
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
@@ -329,20 +329,20 @@ class MedicalImageViewer(QMainWindow):
 
 
 def convert_nifti(fileName):
-    # Load the scan and extract data using nibabel
+    # loading the scan and extracting data using nibabel package
     scan = nib.load(fileName)
     scanArray = scan.get_fdata()
 
-    # Get and print the scan's shape
+    # examinng and printing the scan's shape
     scanArrayShape = scanArray.shape
 
-    # Examine scan's shape and header
+    # examine scan's header
     scanHeader = scan.header
 
-    # Calculate proper aspect ratios
+    # calculating proper aspect ratios
     pixDim = scanHeader['pixdim'][1:4]
 
-    # Calculate new image dimensions from aspect ratio
+    # calculating new image dimensions from aspect ratio
     newScanDims = np.multiply(scanArrayShape, pixDim)
     newScanDims = (round(newScanDims[0]), round(newScanDims[1]), round(newScanDims[2]))
 
@@ -350,24 +350,25 @@ def convert_nifti(fileName):
     outputArray1 = []
     outputArray2 = []
 
+
     for i in range(scanArrayShape[0]):
-        # Resample the slice
+        # resampling the slice
         outputArray = cv2.resize(scanArray[i, :, :], (newScanDims[2], newScanDims[1]))
-        # Save the slice as .png image
-        cv2.imwrite('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg', outputArray)
-        pixmap = QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg')
+        # saving the slice as .png image
+        cv2.imwrite('ex_slice_1.jpeg', outputArray) # adjust the path, either absolute or relative path useed 
+        pixmap = QPixmap('ex_slice_1.jpeg')
         outputArray0.append(pixmap)
 
     for i in range(scanArrayShape[1]):
         outputArray = cv2.resize(scanArray[:, i, :], (newScanDims[2], newScanDims[0]))
-        cv2.imwrite('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg', outputArray)
-        pixmap = QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg')
+        cv2.imwrite('ex_slice_1.jpeg', outputArray)
+        pixmap = QPixmap('ex_slice_1.jpeg')
         outputArray1.append(pixmap)
 
     for i in range(scanArrayShape[2]):
         outputArray = cv2.resize(scanArray[:, :, i], (newScanDims[1], newScanDims[0]))
-        cv2.imwrite('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg', outputArray)
-        pixmap = QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg')
+        cv2.imwrite('ex_slice_1.jpeg', outputArray)
+        pixmap = QPixmap('ex_slice_1.jpeg')
         outputArray2.append(pixmap)
 
     return outputArray0, outputArray1, outputArray2

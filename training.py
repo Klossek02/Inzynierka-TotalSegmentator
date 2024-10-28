@@ -1,3 +1,5 @@
+# === Train.py ===
+
 import glob
 import os
 
@@ -40,6 +42,10 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
         all_labels = []
         i = 0
         for batch in train_loader:
+            if batch is None:
+                print(f"Skipping batch {i} due to invalid samples.")
+                i += 1
+                continue
             print('batch:', i)
             i += 1
             inputs = batch["image"].to(device)
@@ -72,6 +78,8 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
 
         print(f'Epoch {epoch + 1}/{num_epochs}, Training Loss: {epoch_loss}, Training Accuracy: {train_accuracy}')
 
+
+        # validation phase 
         model.eval()
         with torch.no_grad():
             val_loss = 0
@@ -80,7 +88,11 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
             val_count = 0
             i = 0
             for batch in val_loader:
-                print(i)
+                if batch is None:
+                    print(f"Skipping batch {i} due to invalid samples.")
+                    i += 1
+                    continue
+                print(f"Validation batch: {i}")
                 i += 1
                 inputs, labels = batch["image"].to(device), batch["label"].to(device)
 
@@ -95,6 +107,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
                 except Exception as e:
                     print(f"Error during validation at epoch {epoch + 1}: {e}")
                     continue
+
 
             if val_count > 0:
                 val_loss /= val_count
@@ -183,7 +196,6 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.title('Validation DSC')
     plt.show()
 
-#TODO: modify the save_nifti function to work with new form of output
 def save_nifti(volume, path, index=0):
     volume = np.array(volume.detach().cpu()[0], dtype=np.float32)
     volume = nib.Nifti1Image(volume, np.eye(4))
@@ -191,14 +203,14 @@ def save_nifti(volume, path, index=0):
     print(f'patient_predicted_{index} is saved', end='\r')
 
 if __name__ == "__main__":
-    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
-    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "Totalsegmentator_dataset_v201"
+    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
     print(f"Training data loader length: {len(train_loader)}")
     print(f"Validation data loader length: {len(val_loader)}")
 
-    model = get_unet_model(num_classes=117, in_channels=1)
+    model = get_unet_model(num_classes=1, in_channels=1)
     criterion = DiceLoss(sigmoid=True, to_onehot_y=False)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)

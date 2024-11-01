@@ -211,7 +211,7 @@ if __name__ == "__main__":
     print(f"Validation data loader length: {len(val_loader)}")
 
     model = get_unet_model(num_classes=117, in_channels=1)
-    criterion = DiceLoss(softmax=True, to_onehot_y=True)+
+    criterion = DiceLoss(softmax=True, to_onehot_y=True)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 

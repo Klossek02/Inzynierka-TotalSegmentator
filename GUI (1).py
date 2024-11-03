@@ -21,11 +21,78 @@ def save_nifti(volume, path, index=0):
     nib.save(volume, os.path.join(path, f'patient_predicted_{index}.nii.gz'))
     print(f'patient_predicted_{index} is saved', end='\r')
 
+def convert_nifti(fileName, logger=None):
+    try:
+        if logger:
+            logger(f"Loading NIfTI file: {fileName}")
+        # loading the scan and extracting data using nibabel package
+        scan = nib.load(fileName)
+        scanArray = scan.get_fdata()
+
+        # examinng and printing the scan's shape
+        scanArrayShape = scanArray.shape
+
+        # examine scan's header
+        scanHeader = scan.header
+
+        # calculating proper aspect ratios
+        pixDim = scanHeader['pixdim'][1:4]
+
+        # calculating new image dimensions from aspect ratio
+        newScanDims = np.multiply(scanArrayShape, pixDim)
+        newScanDims = (round(newScanDims[0]), round(newScanDims[1]), round(newScanDims[2]))
+
+        outputArray0 = []
+        outputArray1 = []
+        outputArray2 = []
+
+        if logger:
+            logger("Converting slices...")
+
+        for i in range(scanArrayShape[0]):
+            # resampling the slice
+            outputArray = cv2.resize(scanArray[i, :, :], (newScanDims[2], newScanDims[1]))
+            # saving the slice as .png image
+            cv2.imwrite('ex_slice_1.jpeg', outputArray) # adjust the path, either absolute or relative path useed
+            pixmap = QPixmap('ex_slice_1.jpeg')
+            outputArray0.append(pixmap)
+            if logger and i % 10 == 0:
+                logger(f"Converted slice {i + 1}/{scanArrayShape[0]} in dimension 0")
+
+        for i in range(scanArrayShape[1]):
+            outputArray = cv2.resize(scanArray[:, i, :], (newScanDims[2], newScanDims[0]))
+            cv2.imwrite('ex_slice_1.jpeg', outputArray)
+            pixmap = QPixmap('ex_slice_1.jpeg')
+            outputArray1.append(pixmap)
+            if logger and i % 10 == 0:
+                logger(f"Converted slice {i + 1}/{scanArrayShape[1]} in dimension 1")
+
+        for i in range(scanArrayShape[2]):
+            outputArray = cv2.resize(scanArray[:, :, i], (newScanDims[1], newScanDims[0]))
+            cv2.imwrite('ex_slice_1.jpeg', outputArray)
+            pixmap = QPixmap('ex_slice_1.jpeg')
+            outputArray2.append(pixmap)
+            if logger and i % 10 == 0:
+                logger(f"Converted slice {i + 1}/{scanArrayShape[2]} in dimension 2")
+
+        if logger:
+            logger("Slices converted successfully.")
+        return outputArray0, outputArray1, outputArray2
+    except Exception as e:
+        error_message = f"Error in convert_nifti: {str(e)}"
+        if logger:
+            logger(error_message)
+        else:
+            print(error_message)
+        raise e
+
 class MedicalImageViewer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
 
+    def log_message(self, message):
+        self.error_log.appendPlainText(message)
     def initUI(self):
         self.setWindowTitle('SegMed 1.2')
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
@@ -196,7 +263,6 @@ class MedicalImageViewer(QMainWindow):
         self.error_log.setReadOnly(True)
         self.error_log.setFixedHeight(150)
         self.error_log.appendPlainText("Error Log:\n")
-        self.error_log.appendPlainText("Sample error message 1\nSample error message 2")
         self.error_log.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         main_layout.addWidget(self.error_log)
@@ -206,15 +272,21 @@ class MedicalImageViewer(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-        # loading some exemple images 
-        self.image_collection0.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
-        self.image_placeholder.setPixmap(self.image_collection0[0])
-        self.image_collection1.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
-        self.image_placeholder1.setPixmap(self.image_collection1[0])
-        self.image_collection2.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
-        self.image_placeholder2.setPixmap(self.image_collection2[0])
+        # loading some exemple images
+        try:
+            self.log_message("Loading example images...")
+            self.image_collection0.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
+            self.image_placeholder.setPixmap(self.image_collection0[0])
+            self.image_collection1.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
+            self.image_placeholder1.setPixmap(self.image_collection1[0])
+            self.image_collection2.append(QPixmap('C:/Users/magda/Desktop/Studia/INZYNIERKA/ex_slice_1.jpeg'))
+            self.image_placeholder2.setPixmap(self.image_collection2[0])
+            self.log_message("Example images loaded successfully.")
+        except Exception as e:
+            error_message = f"Error loading example images: {str(e)}"
+            self.log_message(error_message)
 
-        ## rendering 3D visualization within the vtk_widget
+        # rendering 3D visualization within the vtk_widget
         self.render_3d_visualization()
 
         # adjusting the window size
@@ -225,9 +297,10 @@ class MedicalImageViewer(QMainWindow):
         if window_size.width() > screen_width or window_size.height() > screen_height:
             self.resize(screen_width, screen_height)
 
-        # centering the window 
+        # centering the window
         self.move((screen_width - self.width()) // 2, (screen_height - self.height()) // 2)
 
+        self.log_message("UI initialized successfully.")
         self.show()
 
     def render_3d_visualization(self):
@@ -238,15 +311,18 @@ class MedicalImageViewer(QMainWindow):
             self.vtk_widget.clear()
 
             # Then, let us call a self-created render function
+            self.log_message("Rendering initial 3D visualization...")
             demo.render_3d(self.vtk_widget,
                            'C:/Users/magda/Desktop/Studia/INZYNIERKA/Totalsegmentator_dataset_v201/s0001/segmentations')
 
             # rendering the widget
             self.vtk_widget.update()
+            self.log_message("Initial 3D visualization rendered successfully.")
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
-            print(error_message)
-            self.error_log.appendPlainText(error_message)
+            # print(error_message)
+            # self.error_log.appendPlainText(error_message)
+            self.log_message(error_message)
 
 
     def setupMenuBar(self):
@@ -260,7 +336,7 @@ class MedicalImageViewer(QMainWindow):
         helpMenu = menuBar.addMenu('Help')
 
         # actions for file menu
-        openAction = QAction('Open', self)
+        openAction = QAction('Upload data', self)
         openAction.setShortcut('Ctrl+O')
         openAction.triggered.connect(self.on_open_file)
         fileMenu.addAction(openAction)
@@ -285,41 +361,56 @@ class MedicalImageViewer(QMainWindow):
         print("View toggled") # logic to toggle the view
 
     def on_open_file(self):
-        print("Open file action triggered") # logic for opening a file
+        self.log_message("Open file action triggered") # logic for opening a file
         #fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
                                                   #"All Files (*);;Python Files (*.py)")
         directoryName = QFileDialog.getExistingDirectory(self, "QFileDialog")
         if directoryName:
-            fileName = directoryName + '/ct.nii.gz'
-            print(fileName)
-            directoryName = directoryName + '/segmentations'
-            #transform3d(fileName)
-            #self.image_placeholder3 = demo.render_3d(self.image_placeholder3)
-            imageDim0, imageDim1, imageDim2 = convert_nifti(fileName)
-            self.slider.setSliderPosition(0)
-            self.image_collection0 = imageDim0
-            self.slider.setRange(0, self.image_collection0.__len__()-1)
-            self.slider1.setSliderPosition(0)
-            self.image_collection1 = imageDim1
-            self.slider1.setRange(0, self.image_collection1.__len__()-1)
-            self.slider2.setSliderPosition(0)
-            self.image_collection2 = imageDim2
-            self.slider2.setRange(0, self.image_collection2.__len__()-1)
+            try:
+                fileName = os.path.join(directoryName, 'ct.nii.gz')
+                self.log_message(f"Selected file: {fileName}")
+                segmentationDir = os.path.join(directoryName, 'segmentations')
+                #transform3d(fileName)
+                #self.image_placeholder3 = demo.render_3d(self.image_placeholder3)
+                self.log_message("Converting NIfTI file...")
+                imageDim0, imageDim1, imageDim2 = convert_nifti(fileName, logger=self.log_message)
+                self.log_message("NIfTI file converted successfully.")
 
-            self.image_placeholder.setPixmap(self.image_collection0[0])
-            self.image_placeholder1.setPixmap(self.image_collection1[0])
-            self.image_placeholder2.setPixmap(self.image_collection2[0])
+                self.slider.setSliderPosition(0)
+                self.image_collection0 = imageDim0
+                self.slider.setRange(0, self.image_collection0.__len__()-1)
+                self.slider1.setSliderPosition(0)
+                self.image_collection1 = imageDim1
+                self.slider1.setRange(0, self.image_collection1.__len__()-1)
+                self.slider2.setSliderPosition(0)
+                self.image_collection2 = imageDim2
+                self.slider2.setRange(0, self.image_collection2.__len__()-1)
 
-            self.plotter = demo.render_3d(self.vtk_widget, directoryName)
-            self.plotter.show()
+                self.image_placeholder.setPixmap(self.image_collection0[0])
+                self.image_placeholder1.setPixmap(self.image_collection1[0])
+                self.image_placeholder2.setPixmap(self.image_collection2[0])
+
+                self.log_message("Rendering 3D visualization...")
+                try:
+                    self.vtk_widget.clear()
+                    demo.render_3d(self.vtk_widget, segmentationDir)
+                    self.vtk_widget.update()
+                    self.log_message("3D visualization rendered successfully.")
+                except Exception as e:
+                    error_message = f"Error rendering 3D visualization: {str(e)}"
+                    self.log_message(error_message)
+            except Exception as e:
+                error_message = f"Error in on_open_file: {str(e)}"
+                self.log_message(error_message)
 
 
     def on_save_file(self):
-        print("Save file action triggered") # logic for saving a file
+        self.log_message("Save file action triggered") # logic for saving a file
 
 
     def on_about(self):
-        print("About action triggered")
+        self.log_message("About action triggered")
+        QMessageBox.about(self, "About", "SegMed 1.2\nDeveloped by ...")
 
     def on_slider_move(self):
         self.image_placeholder.setPixmap(self.image_collection0[self.slider.value()])
@@ -328,50 +419,6 @@ class MedicalImageViewer(QMainWindow):
 
 
 
-def convert_nifti(fileName):
-    # loading the scan and extracting data using nibabel package
-    scan = nib.load(fileName)
-    scanArray = scan.get_fdata()
-
-    # examinng and printing the scan's shape
-    scanArrayShape = scanArray.shape
-
-    # examine scan's header
-    scanHeader = scan.header
-
-    # calculating proper aspect ratios
-    pixDim = scanHeader['pixdim'][1:4]
-
-    # calculating new image dimensions from aspect ratio
-    newScanDims = np.multiply(scanArrayShape, pixDim)
-    newScanDims = (round(newScanDims[0]), round(newScanDims[1]), round(newScanDims[2]))
-
-    outputArray0 = []
-    outputArray1 = []
-    outputArray2 = []
-
-
-    for i in range(scanArrayShape[0]):
-        # resampling the slice
-        outputArray = cv2.resize(scanArray[i, :, :], (newScanDims[2], newScanDims[1]))
-        # saving the slice as .png image
-        cv2.imwrite('ex_slice_1.jpeg', outputArray) # adjust the path, either absolute or relative path useed 
-        pixmap = QPixmap('ex_slice_1.jpeg')
-        outputArray0.append(pixmap)
-
-    for i in range(scanArrayShape[1]):
-        outputArray = cv2.resize(scanArray[:, i, :], (newScanDims[2], newScanDims[0]))
-        cv2.imwrite('ex_slice_1.jpeg', outputArray)
-        pixmap = QPixmap('ex_slice_1.jpeg')
-        outputArray1.append(pixmap)
-
-    for i in range(scanArrayShape[2]):
-        outputArray = cv2.resize(scanArray[:, :, i], (newScanDims[1], newScanDims[0]))
-        cv2.imwrite('ex_slice_1.jpeg', outputArray)
-        pixmap = QPixmap('ex_slice_1.jpeg')
-        outputArray2.append(pixmap)
-
-    return outputArray0, outputArray1, outputArray2
 
 
 if __name__ == '__main__':

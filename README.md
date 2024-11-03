@@ -1,6 +1,6 @@
 # Inzynierka-TotalSegmentator
 
-*Title*: Desktop Application for Visualization and Analysis of a Human Body 3D Deep Learning-Based Models.
+*Title*: Desktop application for visualization and analysis of the human body based on 3D segmentation using deep learning techniques
 
 *Authors*: 
 Aleksandra Kłos, 

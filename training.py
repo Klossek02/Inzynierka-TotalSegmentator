@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from torch import optim
 import nibabel as nib
 
+
 def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -196,6 +197,77 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.title('Validation DSC')
     plt.show()
 
+
+
+def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"): 
+
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        model.eval()
+        criterion = DiceLoss(softmax=True, to_onehot_y=True)
+        dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
+
+        test_loss = 0
+        all_preds = []
+        all_labels = []
+        all_dice_scores = []
+        test_count = 0
+
+        os.makedirs(save_path, exist_ok=True) if save_predictions else None
+        
+        with torch.no_grad():
+            for i, batch in enumerate(test_loader):
+                if batch is None:
+                    print(f"Skipping test batch {i} - invalid samples.")
+                    continue
+
+                inputs = batch["image"].to(device)
+                labels = batch["label"].to(device)
+
+                try:
+                    with torch.cuda.amp.autocast(enabled=use_amp):
+                        outputs = model(inputs)
+                        loss = criterion(outputs, labels)
+                        test_loss += loss.item()
+
+                        preds = torch.argmax(outputs, dim=1)
+                        all_preds.append(preds.cpu().numpy())
+                        all_labels.append(labels.cpu().numpy())
+
+                        # dice score
+                        dice_score = dice_metric(y_pred=preds, y=labels)
+                        all_dice_scores.append(dice_score.item())
+
+                        # saving predictions in NIfTI format
+                        if save_predictions:
+                            for idx in range(inputs.size(0)):
+                                save_nifti(preds[idx], save_path, index=i * test_loader.batch_size + idx)
+
+                    test_count += 1
+
+                except Exception as e:
+                    print(f"ERROR: Exception occurred during testing - batch {i}: {e}")
+                    continue
+
+        if test_count > 0:
+            avg_test_loss = test_loss / test_count
+            all_labels = np.concatenate(all_labels)
+            all_preds = np.concatenate(all_preds)
+
+            test_accuracy = accuracy_score(all_labels.flatten(), all_preds.flatten())
+            test_iou = jaccard_score(all_labels.flatten(), all_preds.flatten(), average='macro')
+            avg_dice = np.mean(all_dice_scores)
+
+            print(f"Test Loss: {avg_test_loss:.4f}")
+            print(f"Test Accuracy: {test_accuracy:.4f}")
+            print(f"Test IoU (Jaccard Score): {test_iou:.4f}")
+            print(f"Test DSC (Dice Similarity Coefficient): {avg_dice:.4f}")
+        else:
+            print("No test data available. Test batches invalid.")
+
+
+
 def save_nifti(volume, path, index=0):
     volume = np.array(volume.detach().cpu()[0], dtype=np.float32)
     volume = nib.Nifti1Image(volume, np.eye(4))
@@ -203,12 +275,13 @@ def save_nifti(volume, path, index=0):
     print(f'patient_predicted_{index} is saved', end='\r')
 
 if __name__ == "__main__":
-    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
-    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "Totalsegmentator_dataset_v201"
+    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
-    print(f"Training data loader length: {len(train_loader)}")
-    print(f"Validation data loader length: {len(val_loader)}")
+    print(f"Training dataloader length: {len(train_loader)}")
+    print(f"Validation dataloader length: {len(val_loader)}")
+    print(f"Test dataloader length: {len(test_loader)}")
 
     model = get_unet_model(num_classes=117, in_channels=1)
     criterion = DiceLoss(softmax=True, to_onehot_y=True)
@@ -218,4 +291,13 @@ if __name__ == "__main__":
     # training, validation
     train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=True, patience=5)
 
+    # saving trained model
     torch.jit.script(model).save('model.zip')
+
+    # loading the best model for testing 
+    best_model = get_unet_model(num_classes=117, in_channels=1)
+    best_model.load_state_dict(torch.load("best_metric_model.pth"))
+    best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    # testing
+    test(best_model, test_loader, use_amp=True, save_predictions=True, save_path='test_predictions')

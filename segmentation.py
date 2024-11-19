@@ -35,7 +35,7 @@ def preprocess_img(ct_scan, target_size=(128, 128, 128)):
     print(f"Resizing with spatial_size: {target_size}")
     resize = Resize(spatial_size=target_size)
     img_tensor = resize(img_tensor)  # NO unsqueeze as previously 
-    print(f"After Resize: {img_tensor.shape}")  
+    print(f"After resize: {img_tensor.shape}")  
 
     return img_tensor
 

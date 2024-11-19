@@ -92,8 +92,11 @@ class MedicalImageViewer(QMainWindow):
             self.vtk_widget.clear() # at first, we clear the wiget to prepare for a new rendering. 
             self.log_message("Clearning time. Rendering a 3D visualization...")
 
+            plotter = Plotter(qt_widget=self.vtk_widget)
+            plotter.background("white")
+
             if seg_file:
-                seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data.is
+                seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data. 
                 self.log_message(f"Segmentation data has been loaded from {seg_file}")
 
                 # extracting all unique labels, except for the background (0).
@@ -133,9 +136,10 @@ class MedicalImageViewer(QMainWindow):
             else:
                 self.log_message("No segmentation file provided, visualization skipped.") # TODO: naprawić
 
+            plotter.background("white")
             self.vtk_widget.update() # refersh vtk_widget to see updates.
         except Exception as e:
-            error_message = f"Error while rendering 3D visualization: {str(e)}"
+            error_message = f"Error rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
             QMessageBox.critical(self, "Visualization error", error_message)
 
@@ -166,124 +170,181 @@ class MedicalImageViewer(QMainWindow):
         screen_width = screen.width()
         screen_height = screen.height()
 
-        # applying custom styles to the app widgets.
+        # applying various styles to enhance UI appearance.
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f0f0f0;
+                background-color: #FFFFFF;  // background color
             }
             QLabel {
-                border: 1px solid #ccc;
+                border: 2px solid #A0A0A0;
                 border-radius: 10px;
-                background-color: #fff;
+                background-color: #F5F5F5;  // label background color
+                color: #333333;             // dark text color
+                font-family: 'Arial';
+                font-size: 14px;
+                font-weight: bold;
             }
             QSlider::groove:horizontal {
-                border: 1px solid #bbb;
-                background: #eee;
+                border: 1px solid #B0B0B0;
+                background: #D3D3D3;
                 height: 10px;
                 border-radius: 5px;
             }
             QSlider::handle:horizontal {
-                background: #66b3ff;
-                border: 1px solid #3399ff;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ADD8E6, stop:1 #87CEFA);
+                border: 1px solid #6495ED;
                 width: 20px;
                 height: 20px;
                 margin: -5px 0;
                 border-radius: 10px;
             }
+            QSlider::handle:horizontal:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #87CEFA, stop:1 #4682B4);
+            }
             QPlainTextEdit {
-                background-color: #2b2b2b;
-                color: #a9b7c6;
+                background-color: #FAFAFA;  // bright background for log panel 
+                color: #333333;             // dark text color 
                 font-family: Consolas, "Courier New", monospace;
                 font-size: 12px;
-                border: none;
+                border: 1px solid #B0B0B0;
+                border-radius: 5px;
             }
             QPushButton {
-                background-color: #66b3ff;
-                color: #fff;
+                background-color: #87CEFA;  // bright color for buttons  
+                color: #FFFFFF;
                 border-radius: 10px;
-                padding: 5px 10px;
+                padding: 10px 20px;
+                font-weight: bold;
+                font-family: 'Arial';
+                font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #5599e6;
+                background-color: #4682B4;  // slightly darker color on a hover 
             }
             QMenuBar {
-                background-color: #fff;
+                background-color: #F5F5F5;  // bright color of the menu bar
+                color: #333333;
             }
             QMenuBar::item {
-                background-color: #fff;
-                padding: 5px 10px;
+                background-color: #F5F5F5;
+                padding: 5px 15px;
+                color: #333333;
             }
             QMenuBar::item:selected {
-                background-color: #f0f0f0;
+                background-color: #ADD8E6;
             }
             QMenu {
-                background-color: #fff;
+                background-color: #FFFFFF;
+                color: #333333;
             }
             QMenu::item:selected {
-                background-color: #66b3ff;
-                color: #fff;
+                background-color: #87CEFA;
+                color: #FFFFFF;
             }
         """)
 
         self.setup_menu_bar()
 
-        # main layout - for controls and images. 
+        # main layout. 
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignCenter)
 
         # grid layout - for image placeholders and sliders.
         grid_layout = QGridLayout()
         grid_layout.setAlignment(Qt.AlignCenter)
+        grid_layout.setSpacing(20)  
 
         self.scan_list_sagittal = []
         self.scan_list_coronal = []
         self.scan_list_axial = []
 
         # image placeholders with fixed sizes.
-        self.scan_top_left = QLabel()
+        placeholder_style = """ 
+            QLabel {
+                border: 2px solid #A0A0A0;
+                border-radius: 10px;
+                background-color: #F5F5F5;  // bright background for labels
+                color: #333333;
+                font-family: 'Arial';
+                font-size: 14px;
+                font-weight: bold;
+            }
+        """
+
+        self.scan_top_left = QLabel("Sagittal view")
         self.scan_top_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_left.setAlignment(Qt.AlignCenter)
-        self.scan_top_left.setStyleSheet("border: 1px solid #ccc; border-radius: 10px; background-color: #fff;")
-        self.scan_top_left.setFixedSize(400, 300)  # fixed size.
-        self.scan_top_left.setScaledContents(True)  # prevent automatic scaling.
+        self.scan_top_left.setStyleSheet(placeholder_style)
+        self.scan_top_left.setFixedSize(400, 300)
+        self.scan_top_left.setScaledContents(True)
 
-        self.scan_top_right = QLabel()
+        self.scan_top_right = QLabel("Coronal view")
         self.scan_top_right.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_right.setAlignment(Qt.AlignCenter)
-        self.scan_top_right.setStyleSheet("border: 1px solid #ccc; border-radius: 10px; background-color: #fff;")
-        self.scan_top_right.setFixedSize(400, 300)  
-        self.scan_top_right.setScaledContents(True)  
+        self.scan_top_right.setStyleSheet(placeholder_style)
+        self.scan_top_right.setFixedSize(400, 300)
+        self.scan_top_right.setScaledContents(True)
 
-        self.scan_bottom_left = QLabel()
+        self.scan_bottom_left = QLabel("Axial view")
         self.scan_bottom_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_bottom_left.setAlignment(Qt.AlignCenter)
-        self.scan_bottom_left.setStyleSheet("border: 1px solid #ccc; border-radius: 10px; background-color: #fff;")
-        self.scan_bottom_left.setFixedSize(400, 300) 
-        self.scan_bottom_left.setScaledContents(True)  
+        self.scan_bottom_left.setStyleSheet(placeholder_style)
+        self.scan_bottom_left.setFixedSize(400, 300)
+        self.scan_bottom_left.setScaledContents(True)
 
-
-        # VTK widget - used for 3D rendering. 
+        # VTK widget - enhanced size and style.
         self.vtk_widget = QtInteractor(self)
         self.vtk_widget.setMinimumSize(400, 300)
-        self.vtk_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.vtk_widget.setStyleSheet("""
+            QtInteractor {
+                background-color: #FFFFFF;  /* Jasne tło dla VTK widget */
+                border: 2px solid #A0A0A0;
+                border-radius: 10px;
+            }
+        """)
 
-        # sliders. 
+        # sliders
+        slider_style = """
+            QSlider::groove:horizontal {
+                border: 1px solid #B0B0B0;
+                background: #D3D3D3;
+                height: 10px;
+                border-radius: 5px;
+            }
+            QSlider::handle:horizontal {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #ADD8E6, stop:1 #87CEFA);
+                border: 1px solid #6495ED;
+                width: 20px;
+                height: 20px;
+                margin: -5px 0;
+                border-radius: 10px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #87CEFA, stop:1 #4682B4);
+            }
+        """
+
         self.slider_sagittal = QSlider(Qt.Horizontal)
         self.slider_sagittal.valueChanged.connect(self.on_slider_move)
-        self.slider_sagittal.setStyleSheet("QSlider { margin-top: 10px; }")
+        self.slider_sagittal.setStyleSheet(slider_style)
         self.slider_sagittal.setFixedWidth(400)
+        self.slider_sagittal.setToolTip("Adjust Sagittal Slice")
 
         self.slider_coronal = QSlider(Qt.Horizontal)
         self.slider_coronal.valueChanged.connect(self.on_slider_move)
-        self.slider_coronal.setStyleSheet("QSlider { margin-top: 10px; }")
+        self.slider_coronal.setStyleSheet(slider_style)
         self.slider_coronal.setFixedWidth(400)
+        self.slider_coronal.setToolTip("Adjust Coronal Slice")
 
         self.slider_axial = QSlider(Qt.Horizontal)
         self.slider_axial.valueChanged.connect(self.on_slider_move)
-        self.slider_axial.setStyleSheet("QSlider { margin-top: 10px; }")
+        self.slider_axial.setStyleSheet(slider_style)
         self.slider_axial.setFixedWidth(400)
+        self.slider_axial.setToolTip("Adjust Axial Slice")
 
-        # inner layouts.
+        # inner layouts for each view.
         inner_layout_sagittal = QVBoxLayout()
         inner_layout_sagittal.addWidget(self.scan_top_left)
         inner_layout_sagittal.addWidget(self.slider_sagittal)
@@ -303,7 +364,7 @@ class MedicalImageViewer(QMainWindow):
         inner_layout_3d.addWidget(self.vtk_widget)
         inner_layout_3d.setAlignment(Qt.AlignCenter)
 
-        # grid layouts.
+        # inner layouts to grid layout with improved spacing.
         grid_layout.addLayout(inner_layout_sagittal, 0, 0)
         grid_layout.addLayout(inner_layout_coronal, 0, 1)
         grid_layout.addLayout(inner_layout_axial, 1, 0)
@@ -311,19 +372,28 @@ class MedicalImageViewer(QMainWindow):
 
         grid_widget = QWidget()
         grid_widget.setLayout(grid_layout)
-        grid_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        grid_widget.adjustSize()
+        grid_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         main_layout.addWidget(grid_widget, alignment=Qt.AlignCenter)
 
-        # error logs.
+        # error logs 
         self.error_log = QPlainTextEdit()
         self.error_log.setReadOnly(True)
         self.error_log.setFixedHeight(150)
         self.error_log.appendPlainText("Error log:\n")
+        self.error_log.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #FAFAFA;
+                color: #333333;
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 12px;
+                border: 1px solid #B0B0B0;
+                border-radius: 5px;
+            }
+        """)
         self.error_log.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # setting central widget.
+        # central widget
         main_layout.addWidget(self.error_log)
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
@@ -332,13 +402,12 @@ class MedicalImageViewer(QMainWindow):
         try:
             self.log_message("UI has been initialized successfully.")
         except Exception as e:
-            error_message = f"Error while initializing UI: {str(e)}"
+            error_message = f"Error initializing UI: {str(e)}"
             self.log_message(error_message)
 
         self.render_3d_visualization()
 
-        self.adjustSize()
-        window_size = self.size()
+        self.resize(900, 800)  # initial size comprising all widgets.
         self.move((screen_width - self.width()) // 2, (screen_height - self.height()) // 2)
         self.show()
 
@@ -462,9 +531,9 @@ class MedicalImageViewer(QMainWindow):
                     else:
                         raise ValueError("Selected file is not a valid NIfTI file.")
         except Exception as e:
-            error_message = f"Error while uploading CT scan: {str(e)}."
+            error_message = f"Error uploading CT scan: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Upload Error", error_message)
+            QMessageBox.critical(self, "Upload error", error_message)
 
 
     def on_upload_segmented_ct_scan(self):
@@ -497,7 +566,7 @@ class MedicalImageViewer(QMainWindow):
                     # disabling segmentation action, as "Segment image" option has been already executed.
                     self.segment_action.setEnabled(False)
         except Exception as e:
-            error_message = f"Error while uploading segmented CT scan: {str(e)}."
+            error_message = f"Error uploading segmented CT scan: {str(e)}."
             self.log_message(error_message)
             QMessageBox.critical(self, "Upload error", error_message)
 
@@ -549,7 +618,7 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(f"Model has been loaded successfully from {model_path}.")
             return model
         except FileNotFoundError:
-            error_message = f"Error: {model_path} not found."
+            error_message = f"ERROR: {model_path} not found."
             self.log_message(error_message)
             QMessageBox.critical(self, "Model loading error", error_message)
             raise
@@ -592,7 +661,7 @@ class MedicalImageViewer(QMainWindow):
             else:
                 QMessageBox.information(self, "No segmentation", "There is no segmentation data to save.")
         except Exception as e:
-            error_message = f"Error while saving segmentation: {str(e)}."
+            error_message = f"Error saving segmentation: {str(e)}."
             self.log_message(error_message)
             QMessageBox.critical(self, "Save error", error_message)
 
@@ -605,7 +674,7 @@ class MedicalImageViewer(QMainWindow):
             self.log_message("Segmentation data has been cleared.")
             self.render_3d_visualization()  # clear visualization.
         except Exception as e:
-            error_message = f"Error while closing segmentation: {str(e)}."
+            error_message = f"Error closing segmentation: {str(e)}."
             self.log_message(error_message)
             QMessageBox.critical(self, "Close error", error_message)
 
@@ -679,7 +748,7 @@ class MedicalImageViewer(QMainWindow):
                 visualization.display_single_slice(self.scan_bottom_left, self.scan_list_axial[current_axial])
 
         except Exception as e:
-            error_message = f"Error while moving sliders: {str(e)}"
+            error_message = f"Error moving sliders: {str(e)}"
             self.log_message(error_message)
 
 

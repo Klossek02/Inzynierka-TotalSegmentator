@@ -22,7 +22,7 @@ import visualization
 import segmentation  
 from model import get_unet_model  
 
-# Wegets and libraries used: https://doc.qt.io/qt-6/qtwidgets-module.html   https://doc.qt.io/qt-6/widget-classes.html
+# wigets and libraries used: https://doc.qt.io/qt-6/qtwidgets-module.html   https://doc.qt.io/qt-6/widget-classes.html
 
 
 # as in case of the Dataloader, the mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
@@ -63,9 +63,9 @@ main_classes_CT = {
 if not main_classes_CT:
     raise ValueError("ERROR: main_classes_CT dictionary is empty. No labels have been created.")
 
-# in this step, we create a mapping of numeric labels to organ names, based on their grouping in main_classes_CT
+# in this step, we create a mapping of numeric labels to organ names, based on their grouping in main_classes_CT.
 lbl_to_organ = {}
-lbl_counter = 1  # let us assume that counting starts from 1
+lbl_counter = 1  # let us assume that counting starts from 1.
 
 for organ_grp, organ_names in main_classes_CT.items():
     for organ_name in organ_names:
@@ -85,36 +85,36 @@ class MedicalImageViewer(QMainWindow):
     def log_message(self, message):
         self.error_log.appendPlainText(message)
 
-    # rendering 3D visualization 
+    # rendering 3D visualization. 
     # we'll do this with the use of vtk widget: https://kitware.github.io/vtk-js/docs/concepts_widgets.html
     def render_3d_visualization(self, seg_file=None):
         try:
-            self.vtk_widget.clear() # at first, we clear the wiget to prepare for a new rendering 
+            self.vtk_widget.clear() # at first, we clear the wiget to prepare for a new rendering. 
             self.log_message("Clearning time. Rendering a 3D visualization...")
 
             if seg_file:
-                seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data
+                seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data.is
                 self.log_message(f"Segmentation data has been loaded from {seg_file}")
 
-                # extracting all unique labels, except for the background (0)
+                # extracting all unique labels, except for the background (0).
                 unique_lbls = np.unique(seg_data)
                 unique_lbls = unique_lbls[unique_lbls != 0]  
                 self.log_message(f"Unique labels in segmentation: {unique_lbls}")
 
-                # preparing 3D models for each labelled region 
+                # preparing 3D models for each labelled region.
                 volume = []
-                colors_rgb = self.get_distinct_colors(len(unique_lbls)) # generating unique colors 
+                colors_rgb = self.get_distinct_colors(len(unique_lbls)) # generating unique colors. 
 
 
                 for i, lbl in enumerate(unique_lbls):
                     organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
                     organ_mask = (seg_data == lbl).astype(np.uint8)
 
-                    if np.sum(organ_mask) == 0: # skipping empty mask
+                    if np.sum(organ_mask) == 0: # skipping empty mask.
                         self.log_message(f'Skipping label {lbl}.')
                         continue
 
-                    # geenrating STL file and load it as a 3D model
+                    # geenrating STL file and load it as a 3D model.
                     seg_path = f'segmented_{organ_name}.stl'
                     demo.convert_to_stl(organ_mask, seg_path)
 
@@ -122,51 +122,51 @@ class MedicalImageViewer(QMainWindow):
                     volume.append(vol)
                     i += 1
 
-                    # clearning temporary STL files
+                    # clearning temporary STL files.
                     if os.path.exists(seg_path):
                         os.remove(seg_path)
 
-                # displaying 3D visualization using afornemtioned vtk_widget library
+                # displaying 3D visualization using afornemtioned vtk_widget library.
                 plotter = Plotter(qt_widget=self.vtk_widget)
                 plotter.show(volume, axes=1)
                 self.log_message("3D visualization has been rendered successfully.")
             else:
-                self.log_message("No segmentation file provided, visualization skipped.")
+                self.log_message("No segmentation file provided, visualization skipped.") # TODO: naprawić
 
-            self.vtk_widget.update() # refersh vtk_widget to see updates
+            self.vtk_widget.update() # refersh vtk_widget to see updates.
         except Exception as e:
             error_message = f"Error while rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization Error", error_message)
+            QMessageBox.critical(self, "Visualization error", error_message)
 
 
-    # this function's purpose is to generate N distinct RGB colors
+    # this function's purpose is to generate N distinct RGB colors.
     def get_distinct_colors(self, N):
         colormaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent','Dark2', 
         'Set1', 'Set2', 'Set3','tab10', 'tab20', 'tab20b', 'tab20c']  # https://matplotlib.org/stable/users/explain/colors/colormaps.html
         colors = []
     
         for i in range(N):
-            cmap_name = colormaps[i % len(colormaps)]  # cycling through available colormaps defined above
+            cmap_name = colormaps[i % len(colormaps)]  # cycling through available colormaps defined above.
             cmap = cm.get_cmap(cmap_name)
-            normalized_idx = (i % cmap.N) / cmap.N # normalize index
-            rgb_color = cmap(normalized_idx)[:3]  # extract RGB values 
+            normalized_idx = (i % cmap.N) / cmap.N # normalize index.
+            rgb_color = cmap(normalized_idx)[:3]  # extract RGB values.
             colors.append(rgb_color)
     
         return colors
 
-    # UI components, layout, styling visible for the user
+    # UI components, layout, styling visible for the user.
     def init_ui(self):
         self.setWindowTitle('SegMed 1.1')
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
         QToolTip.setFont(QFont('SansSerif', 10))
 
-        # screen dimensions
+        # screen dimensions.
         screen = QApplication.desktop().screenGeometry()
         screen_width = screen.width()
         screen_height = screen.height()
 
-        # applying custom styles to the app widgets
+        # applying custom styles to the app widgets.
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f0f0f0;
@@ -227,11 +227,11 @@ class MedicalImageViewer(QMainWindow):
 
         self.setup_menu_bar()
 
-        # main layout - for controls and images 
+        # main layout - for controls and images. 
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignCenter)
 
-        # grid layout - for image placeholders and sliders
+        # grid layout - for image placeholders and sliders.
         grid_layout = QGridLayout()
         grid_layout.setAlignment(Qt.AlignCenter)
 
@@ -239,13 +239,13 @@ class MedicalImageViewer(QMainWindow):
         self.scan_list_coronal = []
         self.scan_list_axial = []
 
-        # image placeholders with fixed sizes
+        # image placeholders with fixed sizes.
         self.scan_top_left = QLabel()
         self.scan_top_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_left.setAlignment(Qt.AlignCenter)
         self.scan_top_left.setStyleSheet("border: 1px solid #ccc; border-radius: 10px; background-color: #fff;")
-        self.scan_top_left.setFixedSize(400, 300)  # fixed size
-        self.scan_top_left.setScaledContents(True)  # prevent automatic scaling
+        self.scan_top_left.setFixedSize(400, 300)  # fixed size.
+        self.scan_top_left.setScaledContents(True)  # prevent automatic scaling.
 
         self.scan_top_right = QLabel()
         self.scan_top_right.setFrameStyle(QFrame.StyledPanel)
@@ -262,12 +262,12 @@ class MedicalImageViewer(QMainWindow):
         self.scan_bottom_left.setScaledContents(True)  
 
 
-        # VTK widget - used for 3D rendering 
+        # VTK widget - used for 3D rendering. 
         self.vtk_widget = QtInteractor(self)
         self.vtk_widget.setMinimumSize(400, 300)
         self.vtk_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        # sliders 
+        # sliders. 
         self.slider_sagittal = QSlider(Qt.Horizontal)
         self.slider_sagittal.valueChanged.connect(self.on_slider_move)
         self.slider_sagittal.setStyleSheet("QSlider { margin-top: 10px; }")
@@ -283,7 +283,7 @@ class MedicalImageViewer(QMainWindow):
         self.slider_axial.setStyleSheet("QSlider { margin-top: 10px; }")
         self.slider_axial.setFixedWidth(400)
 
-        # inner layouts
+        # inner layouts.
         inner_layout_sagittal = QVBoxLayout()
         inner_layout_sagittal.addWidget(self.scan_top_left)
         inner_layout_sagittal.addWidget(self.slider_sagittal)
@@ -303,7 +303,7 @@ class MedicalImageViewer(QMainWindow):
         inner_layout_3d.addWidget(self.vtk_widget)
         inner_layout_3d.setAlignment(Qt.AlignCenter)
 
-        # grid layouts
+        # grid layouts.
         grid_layout.addLayout(inner_layout_sagittal, 0, 0)
         grid_layout.addLayout(inner_layout_coronal, 0, 1)
         grid_layout.addLayout(inner_layout_axial, 1, 0)
@@ -316,14 +316,14 @@ class MedicalImageViewer(QMainWindow):
 
         main_layout.addWidget(grid_widget, alignment=Qt.AlignCenter)
 
-        # error logs
+        # error logs.
         self.error_log = QPlainTextEdit()
         self.error_log.setReadOnly(True)
         self.error_log.setFixedHeight(150)
         self.error_log.appendPlainText("Error log:\n")
         self.error_log.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # setting central widget
+        # setting central widget.
         main_layout.addWidget(self.error_log)
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
@@ -370,11 +370,11 @@ class MedicalImageViewer(QMainWindow):
         segment_action = QAction('Segment a CT scan', self)
         segment_action.setShortcut('Ctrl+G')
         segment_action.triggered.connect(self.on_segment_image)
-        segment_action.setEnabled(False)  # initially disabled until data is uploaded
+        segment_action.setEnabled(False)  # initially disabled until data is uploaded.
         edit_menu.addAction(segment_action)
         self.segment_action = segment_action  
 
-        manage_view_action = QAction('Manage View', self)
+        manage_view_action = QAction('Manage view', self)
         manage_view_action.setShortcut('Ctrl+M')
         manage_view_action.triggered.connect(self.on_manage_view)
         view_menu.addAction(manage_view_action)
@@ -405,7 +405,7 @@ class MedicalImageViewer(QMainWindow):
         about_menu.addAction(about_action)
 
 
-    # function to enable uploading the CT scans directly to the application
+    # function to enable uploading the CT scans directly to the application.
     def on_upload_data(self):
         self.log_message("Upload data action has been triggered.")
         options = [
@@ -451,7 +451,7 @@ class MedicalImageViewer(QMainWindow):
                         self.affine = affine
                         self.log_message("CT scan has been validated and successfully uploaded.")
                         
-                        # converting image slices (in all dimensions) for visualization
+                        # converting image slices (in all dimensions) for visualization.
                         self.scan_list_sagittal, self.scan_list_coronal, self.scan_list_axial, self.affine = visualization.convert_img_slices(
                             file_path, target_size=(400, 300, 128), logger=self.log_message)
                         
@@ -494,24 +494,22 @@ class MedicalImageViewer(QMainWindow):
                         self.segmented_scans[organ_name] = seg_data
                         self.log_message(f"Segmented CT scan for {organ_name} has been successfully uploaded.")
 
-
-
-                    # Disable the "Segment Image" action as segmentation is already done
+                    # disabling segmentation action, as "Segment image" option has been already executed.
                     self.segment_action.setEnabled(False)
         except Exception as e:
             error_message = f"Error while uploading segmented CT scan: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Upload Error", error_message)
+            QMessageBox.critical(self, "Upload error", error_message)
 
     def on_segment_image(self):
         self.log_message("Segment image action has been triggered.")
         try:
             if self.ct_scans is None:
                 self.log_message("No CT scans have been loaded for segmentation.")
-                QMessageBox.warning(self, "Segmentation Error", "Please upload your CT scan before performing segmentation.")
+                QMessageBox.warning(self, "Segmentation error", "Please upload your CT scan before performing segmentation.")
                 return
 
-            # For debugging purposes - to check whether the tensor shape is correct
+            # for debugging purposes - to check whether the tensor shape is correct.
             self.log_message("Preprocessing the CT image for segmentation...")
             img_tensor = segmentation.preprocess_img(self.ct_scans, target_size=(128, 128, 128))
             self.log_message(f"Preprocessed image tensor shape: {img_tensor.shape}")  
@@ -521,7 +519,7 @@ class MedicalImageViewer(QMainWindow):
 
             self.log_message("Performing segmentation...")
             seg_out = segmentation.segment_img(model, img_tensor)
-            self.log_message(f"Segmentation output shape: {seg_out.shape}")  # Debug
+            self.log_message(f"Segmentation output shape: {seg_out.shape}")  
 
             self.log_message("Saving the segmentation result as a NIfTI file...")
             save_path, _ = QFileDialog.getSaveFileName(self, "Save Segmentation Result", "", "NIfTI Files (*.nii *.nii.gz)")
@@ -529,35 +527,35 @@ class MedicalImageViewer(QMainWindow):
                 segmentation.save_segmentation(seg_out, self.affine, save_path)
                 self.log_message(f"Segmentation has been saved at {save_path}.")
 
-                # Optionally, reload the segmentation for visualization
+                # optionally, reloading the segmentation for visualization.
                 self.render_3d_visualization(save_path)
         except Exception as e:
             error_message = f"ERROR: error while performing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Segmentation Error", error_message)
+            QMessageBox.critical(self, "Segmentation error", error_message)
 
 
-    # function for loading a trained model to 3D organ visualization
+    # function for loading a trained model to 3D organ visualization.
     def load_segmentation_model(self) -> torch.nn.Module:
 
         model_path = "best_metric_model.pth"
         try:
-            # let us initialize the model with the same parameters used during training
+            # let us initialize the model with the same parameters used during training.
             model = get_unet_model(num_classes=117, in_channels=1)
-            state_dict = torch.load(model_path, map_location=torch.device('cpu')) # loading state_dict
-            model.load_state_dict(state_dict) # loading it into the model
-            model.eval() # setting model to evaluation mode
+            state_dict = torch.load(model_path, map_location=torch.device('cpu')) # loading state_dict.
+            model.load_state_dict(state_dict) # loading it into the model.
+            model.eval() # setting model to evaluation mode.
             
             self.log_message(f"Model has been loaded successfully from {model_path}.")
             return model
         except FileNotFoundError:
             error_message = f"Error: {model_path} not found."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Model Loading Error", error_message)
+            QMessageBox.critical(self, "Model loading error", error_message)
             raise
 
 
-    # function for updating image placeholders (3 of them)with the first silce from each view
+    # function for updating image placeholders (3 of them)with the first silce from each view.
     def update_image_placeholders(self):
 
         if self.scan_list_sagittal:
@@ -576,7 +574,7 @@ class MedicalImageViewer(QMainWindow):
             self.slider_axial.setValue(0)
 
 
-    # function for saving the segmented CT scans
+    # function for saving the segmented CT scans.
     def on_save_segmentation(self):
         self.log_message("Save segmentation action has been triggered.")
         try:
@@ -592,53 +590,53 @@ class MedicalImageViewer(QMainWindow):
                         segmentation.save_segmentation(seg_data, self.affine, save_path)
                         self.log_message(f"Segmentation for {organ} saved at {save_path}.")
             else:
-                QMessageBox.information(self, "No Segmentation", "There is no segmentation data to save.")
+                QMessageBox.information(self, "No segmentation", "There is no segmentation data to save.")
         except Exception as e:
             error_message = f"Error while saving segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Save Error", error_message)
+            QMessageBox.critical(self, "Save error", error_message)
 
 
-    # function for closing the segmentation and updating the visualization
+    # function for closing the segmentation and updating the visualization.
     def on_close_segmentation(self):
         self.log_message("Close segmentation action has been triggered.")
         try:
             self.segmented_scans = {}
             self.log_message("Segmentation data has been cleared.")
-            self.render_3d_visualization()  # clear visualization
+            self.render_3d_visualization()  # clear visualization.
         except Exception as e:
             error_message = f"Error while closing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Close Error", error_message)
+            QMessageBox.critical(self, "Close error", error_message)
 
 
-     # function for handling 'Manage View' action from the menu bar
+     # function for handling 'Manage view' action from the menu bar.
     def on_manage_view(self):
         self.log_message("Manage view action has been triggered.")
         # TODO: implement
 
-    # function for handling 'Zoom In' action from the menu bar
+    # function for handling 'Zoom in' action from the menu bar.
     def on_zoom_in(self):
         self.log_message("Zoom in action has been triggered.")
         # TODO: implement
 
-    # function for handling 'Zoom In' action from the menu bar
+    # function for handling 'Zoom in' action from the menu bar
     def on_zoom_out(self):
         self.log_message("Zoom out action has been triggered.")
         # TODO: implement
 
-    # function for displaying help message
+    # function for displaying help message.
     def on_help(self):
         self.log_message("Help action has been triggered.")
-        QMessageBox.information(self, "Help", "SegMed Help Information:\n\n1. Upload CT scans.\n2. Perform segmentation.\n3. Visualize results.")
+        QMessageBox.information(self, "Help", "SegMed help information:\n\n1. Upload CT scans.\n2. Perform segmentation.\n3. Visualize results.")
 
-    # function for displaying report problem diagnostic information
+    # function for displaying report problem diagnostic information.
     def on_report_problem(self):
         self.log_message("Report problem action has been triggered.")
-        QMessageBox.information(self, "Report Problem", "Please provide us with the details of the problem you encountered.")
+        QMessageBox.information(self, "Report problem", "Please provide us with the details of the problem you encountered.")
 
 
-    # function displaying "About" dialog with application name, its version and authors
+    # function displaying "About" dialog with application name, its version and authors.
     def on_about(self):
         self.log_message("About action has been triggered.")
 
@@ -666,7 +664,7 @@ class MedicalImageViewer(QMainWindow):
 
         dialog.exec_()
 
-    # function for handling image slider movement for each image placeholder
+    # function for handling image slider movement for each image placeholder.
     def on_slider_move(self):
         try:
             current_sagittal = self.slider_sagittal.value()

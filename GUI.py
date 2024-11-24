@@ -80,6 +80,7 @@ class MedicalImageViewer(QMainWindow):
         self.ct_scans = None
         self.affine = None
         self.segmented_scans = {}
+        self.segmentation_result = None  # Stores the full segmentation result
         self.init_ui()
 
     def log_message(self, message):
@@ -590,36 +591,33 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Upload error", error_message)
 
-
     def on_upload_segmented_ct_scan(self):
         self.log_message("Upload segmented CT scan action has been triggered.")
         try:
-            dir_dialog = QFileDialog(self)
-            dir_dialog.setWindowTitle("Select directory with segmented CT scan:")
-            dir_dialog.setFileMode(QFileDialog.Directory)
-            if dir_dialog.exec_():
-                chosen_dir = dir_dialog.selectedFiles()
-                if chosen_dir:
-                    dir_path = chosen_dir[0]
-                    self.log_message(f"Uploading segmented CT scan from directory {dir_path}...")
+            file_dialog = QFileDialog(self)
+            file_dialog.setWindowTitle("Select a segmented CT scan file to upload:")
+            file_dialog.setNameFilter("NIfTI Files (*.nii *.nii.gz)")
+            file_dialog.setFileMode(QFileDialog.ExistingFile)
+            if file_dialog.exec_():
+                chosen_file = file_dialog.selectedFiles()
+                if chosen_file:
+                    file_path = chosen_file[0]
+                    self.log_message(f"Uploading segmented CT scan from {file_path}...")
 
-                    segmented_scans = [
-                        os.path.join(dir_path, f) for f in os.listdir(dir_path)
-                        if f.endswith('.nii') or f.endswith('.nii.gz')
-                    ]   
-
-                    if not segmented_scans:
-                        raise ValueError("No segmented CT scans found in the chosen directory.")
-
-                    self.segmented_scans = {}
-                    for file_path in segmented_scans:
-                        organ_name = os.path.splitext(os.path.basename(file_path))[0]
+                    if data_import.validate_nifti(file_path):
                         seg_data, affine = data_import.load_nifti(file_path)
-                        self.segmented_scans[organ_name] = seg_data
-                        self.log_message(f"Segmented CT scan for {organ_name} has been successfully uploaded.")
+                        self.segmentation_result = seg_data
+                        self.affine = affine
+                        self.log_message("Segmented CT scan has been successfully uploaded.")
 
-                    # disabling segmentation action, as "Segment image" option has been already executed.
-                    self.segment_action.setEnabled(False)
+                        # Render the segmentation
+                        self.render_3d_visualization_from_data(seg_data)
+
+                        # Disable segmentation action, as "Segment image" option has been already executed.
+                        self.segment_action.setEnabled(False)
+                    else:
+                        raise ValueError("Selected file is not a valid NIfTI file.")
+
         except Exception as e:
             error_message = f"Error uploading segmented CT scan: {str(e)}."
             self.log_message(error_message)
@@ -643,20 +641,64 @@ class MedicalImageViewer(QMainWindow):
 
             self.log_message("Performing segmentation...")
             seg_out = segmentation.segment_img(model, img_tensor)
-            self.log_message(f"Segmentation output shape: {seg_out.shape}")  
+            self.log_message(f"Segmentation output shape: {seg_out.shape}")
 
-            self.log_message("Saving the segmentation result as a NIfTI file...")
-            save_path, _ = QFileDialog.getSaveFileName(self, "Save Segmentation Result", "", "NIfTI Files (*.nii *.nii.gz)")
-            if save_path:
-                segmentation.save_segmentation(seg_out, self.affine, save_path)
-                self.log_message(f"Segmentation has been saved at {save_path}.")
+            # Store the segmentation result
+            self.segmentation_result = seg_out
 
-                # optionally, reloading the segmentation for visualization.
-                self.render_3d_visualization(save_path)
+            # Optionally, render the segmentation
+            self.render_3d_visualization_from_data(seg_out)
+
+            self.log_message("Segmentation completed. You can now save the segmentation from the 'File' menu.")
+
         except Exception as e:
             error_message = f"ERROR: error while performing segmentation: {str(e)}."
             self.log_message(error_message)
             QMessageBox.critical(self, "Segmentation error", error_message)
+
+    def render_3d_visualization_from_data(self, seg_data):
+        try:
+            self.vtk_widget.clear()
+            self.log_message("Rendering 3D visualization from segmentation data...")
+
+            self.plotter = Plotter(qt_widget=self.vtk_widget)
+            self.plotter.background("#F5F5F5")
+
+            unique_lbls = np.unique(seg_data)
+            unique_lbls = unique_lbls[unique_lbls != 0]
+            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
+
+            volume = []
+            colors_rgb = self.get_distinct_colors(len(unique_lbls))
+
+            for i, lbl in enumerate(unique_lbls):
+                organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
+                organ_mask = (seg_data == lbl).astype(np.uint8)
+
+                if np.sum(organ_mask) == 0:
+                    self.log_message(f'Skipping label {lbl}.')
+                    continue
+
+                seg_path = f'segmented_{organ_name}.stl'
+                demo.convert_to_stl(organ_mask, seg_path)
+
+                vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
+                volume.append(vol)
+                i += 1
+
+                if os.path.exists(seg_path):
+                    os.remove(seg_path)
+
+            self.plotter.show(volume, axes=1)
+            self.log_message("3D visualization has been rendered successfully.")
+
+            self.plotter.background("#F5F5F5")
+            self.vtk_widget.update()
+
+        except Exception as e:
+            error_message = f"Error rendering 3D visualization: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Visualization error", error_message)
 
 
     # function for loading a trained model to 3D organ visualization.
@@ -702,17 +744,17 @@ class MedicalImageViewer(QMainWindow):
     def on_save_segmentation(self):
         self.log_message("Save segmentation action has been triggered.")
         try:
-            if self.segmented_scans:
-                for organ, seg_data in self.segmented_scans.items():
-                    save_path, _ = QFileDialog.getSaveFileName(
-                        self, 
-                        f"Save {organ} Segmentation", 
-                        f"{organ}_segmentation.nii.gz", 
-                        "NIfTI Files (*.nii *.nii.gz)"
-                    )
-                    if save_path:
-                        segmentation.save_segmentation(seg_data, self.affine, save_path)
-                        self.log_message(f"Segmentation for {organ} saved at {save_path}.")
+            if self.segmentation_result is not None:
+                save_path, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "Save Segmentation Result",
+                    "segmentation_result.nii.gz",
+                    "NIfTI Files (*.nii *.nii.gz)"
+                )
+                if save_path:
+                    segmentation.save_segmentation(self.segmentation_result, self.affine, save_path)
+                    self.log_message(f"Segmentation saved at {save_path}.")
+                    QMessageBox.information(self, "Save Successful", f"Segmentation has been saved at:\n{save_path}")
             else:
                 QMessageBox.information(self, "No segmentation", "There is no segmentation data to save.")
         except Exception as e:
@@ -720,21 +762,54 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Save error", error_message)
 
-
     # function for closing the segmentation and updating the visualization.
     def on_close_segmentation(self):
         self.log_message("Close segmentation action has been triggered.")
         try:
+            # Clear segmentation data
             self.segmented_scans = {}
-            self.log_message("Segmentation data has been cleared.")
-            self.render_3d_visualization()  # clear visualization.
+            self.segmentation_result = None
+
+            # Clear CT scans
+            self.ct_scans = None
+            self.affine = None
+
+            # Clear image placeholders
+            self.scan_list_sagittal = []
+            self.scan_list_coronal = []
+            self.scan_list_axial = []
+
+            self.scan_top_left.clear()
+            self.scan_top_left.setText("Sagittal view")
+            self.scan_top_right.clear()
+            self.scan_top_right.setText("Coronal view")
+            self.scan_bottom_left.clear()
+            self.scan_bottom_left.setText("Axial view")
+
+            # Reset sliders
+            self.slider_sagittal.setValue(0)
+            self.slider_sagittal.setMaximum(0)
+            self.slider_coronal.setValue(0)
+            self.slider_coronal.setMaximum(0)
+            self.slider_axial.setValue(0)
+            self.slider_axial.setMaximum(0)
+
+            # Clear 3D visualization
+            if hasattr(self, 'plotter'):
+                self.plotter.clear()
+                self.vtk_widget.update()
+
+            # Disable segmentation action
+            self.segment_action.setEnabled(False)
+
+            self.log_message("Segmentation data and CT scans have been cleared. Application reset to initial state.")
+
         except Exception as e:
             error_message = f"Error closing segmentation: {str(e)}."
             self.log_message(error_message)
             QMessageBox.critical(self, "Close error", error_message)
 
-
-     # function for handling 'Manage view' action from the menu bar.
+    # function for handling 'Manage view' action from the menu bar.
     def on_manage_view(self):
         self.log_message("Manage view action has been triggered.")
         # TODO: implement

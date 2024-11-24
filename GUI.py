@@ -92,8 +92,8 @@ class MedicalImageViewer(QMainWindow):
             self.vtk_widget.clear() # at first, we clear the wiget to prepare for a new rendering. 
             self.log_message("Clearning time. Rendering a 3D visualization...")
 
-            plotter = Plotter(qt_widget=self.vtk_widget)
-            plotter.background("white")
+            self.plotter = Plotter(qt_widget=self.vtk_widget)
+            self.plotter.background("#F5F5F5")
 
             if seg_file:
                 seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data. 
@@ -130,13 +130,14 @@ class MedicalImageViewer(QMainWindow):
                         os.remove(seg_path)
 
                 # displaying 3D visualization using afornemtioned vtk_widget library.
-                plotter = Plotter(qt_widget=self.vtk_widget)
-                plotter.show(volume, axes=1)
+                self.plotter = Plotter(qt_widget=self.vtk_widget)
+                self.plotter.show(volume, axes=1)
                 self.log_message("3D visualization has been rendered successfully.")
             else:
                 self.log_message("No segmentation file provided, visualization skipped.") # TODO: naprawić
 
-            plotter.background("white")
+            # plotter.background("white")
+            self.plotter.background("#F5F5F5")
             self.vtk_widget.update() # refersh vtk_widget to see updates.
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
@@ -359,6 +360,60 @@ class MedicalImageViewer(QMainWindow):
         inner_layout_axial.addWidget(self.scan_bottom_left)
         inner_layout_axial.addWidget(self.slider_axial)
         inner_layout_axial.setAlignment(Qt.AlignCenter)
+
+        self.vtk_container = QWidget()
+        self.vtk_container.setMinimumSize(400, 300)
+        self.vtk_container.setStyleSheet("background-color: transparent;")
+
+        # Create a grid layout for the container
+        vtk_container_layout = QGridLayout()
+        vtk_container_layout.setContentsMargins(0, 0, 0, 0)
+        vtk_container_layout.setSpacing(0)
+        self.vtk_container.setLayout(vtk_container_layout)
+
+        # Add the vtk_widget to the grid layout
+        vtk_container_layout.addWidget(self.vtk_widget, 0, 0)
+
+        # Create the zoom in and zoom out buttons
+        self.zoom_in_button = QPushButton("+")
+        self.zoom_in_button.setFixedSize(30, 30)
+        self.zoom_in_button.clicked.connect(self.on_zoom_in)
+        self.zoom_out_button = QPushButton("-")
+        self.zoom_out_button.setFixedSize(30, 30)
+        self.zoom_out_button.clicked.connect(self.on_zoom_out)
+
+        # Style the buttons
+        button_style = """
+            QPushButton {
+                background-color: rgba(135, 206, 250, 180);  /* Semi-transparent */
+                color: #FFFFFF;
+                border-radius: 15px;
+                font-weight: bold;
+                font-size: 18px;
+            }
+            QPushButton:hover {
+                background-color: rgba(70, 130, 180, 180);
+            }
+            """
+        self.zoom_in_button.setStyleSheet(button_style)
+        self.zoom_out_button.setStyleSheet(button_style)
+
+        # Create a layout to hold the buttons
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setContentsMargins(5, 5, 5, 5)
+        buttons_layout.setSpacing(5)
+        buttons_layout.addWidget(self.zoom_in_button)
+        buttons_layout.addWidget(self.zoom_out_button)
+        buttons_layout.addStretch()
+        buttons_layout.setAlignment(Qt.AlignTop | Qt.AlignRight)
+
+        # Create a widget to hold the buttons layout
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+        buttons_widget.setStyleSheet("background-color: transparent;")
+
+        # Add the buttons_widget to the grid layout, overlaid on the vtk_widget
+        vtk_container_layout.addWidget(buttons_widget, 0, 0, Qt.AlignTop | Qt.AlignRight)
 
         inner_layout_3d = QVBoxLayout()
         inner_layout_3d.addWidget(self.vtk_widget)
@@ -687,12 +742,32 @@ class MedicalImageViewer(QMainWindow):
     # function for handling 'Zoom in' action from the menu bar.
     def on_zoom_in(self):
         self.log_message("Zoom in action has been triggered.")
-        # TODO: implement
+        try:
+            if hasattr(self, 'plotter'):
+                self.plotter.zoom(1.2)  # Zoom in by a factor of 1.2
+                self.plotter.render()
+                self.vtk_widget.update()
+            else:
+                self.log_message("No plotter available for zooming.")
+        except Exception as e:
+            error_message = f"Error during zoom in: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Zoom In Error", error_message)
 
     # function for handling 'Zoom in' action from the menu bar
     def on_zoom_out(self):
         self.log_message("Zoom out action has been triggered.")
-        # TODO: implement
+        try:
+            if hasattr(self, 'plotter'):
+                self.plotter.zoom(0.8)  # Zoom out by a factor of 0.8
+                self.plotter.render()
+                self.vtk_widget.update()
+            else:
+                self.log_message("No plotter available for zooming.")
+        except Exception as e:
+            error_message = f"Error during zoom out: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Zoom Out Error", error_message)
 
     # function for displaying help message.
     def on_help(self):

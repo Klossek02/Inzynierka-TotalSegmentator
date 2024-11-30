@@ -214,7 +214,7 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
     num_workers: no. of workers for loading data 
  """
 
-def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, num_workers = 2):
+def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, num_workers = 1):
         # helper function to get paths for imgs and their corresponding lbl directories 
         def get_img_lbl_paths(ids):
             img = [] # list of img paths 
@@ -272,15 +272,22 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             print(f"Image: {img}")
 
 
-        # defining transforms for training, validation and testing set 
+        # defining transforms for training, validation and testing set  --> DATA AUGMENTATION STEP
+
+        # we have to remember that LoadImaged, EnsureChannelFirstd, EnsureTyped, ScaleIntensityd, ResizeWithPadOrCropd, Convert_To_Binary
+        # are not the actual augmentation, yet the preprocessing steps. These are as follows:
+        # 1. Loading and ensuring the correct data format.
+        # 2. Scaling intensities.
+        # 3. Resizing the image to the correct spatial dimensions. 
+
         train_transforms = Compose([
             LoadImaged(keys=['image', 'label']),
             EnsureChannelFirstd(keys=['image', 'label']),
             EnsureTyped(keys=['image', 'label']),
             ScaleIntensityd(keys=['image']),
-            #RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
-            #RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
-            #RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
+            RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
+            RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
+            RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
             #RandZoomd(keys=['image', 'label'], prob = 0.7, min_zoom=1.1 , max_zoom = 1.2, mode=['trilinear', 'nearest'], align_corners=True),
             #RandAxisFlipd(keys = ['image', 'label'], prob = 0.5),
             RandGaussianNoised(keys = ['image'], prob = 0.5),
@@ -362,6 +369,3 @@ if  __name__ == "__main__":
 
 # WARNING: since the output is big, a good practice is to type in the terminal: 
 # python dataloader.py > output.txt 
-
-
-        

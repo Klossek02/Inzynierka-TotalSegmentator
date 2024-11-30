@@ -49,24 +49,29 @@ def segment_img(model, img_tensor):
         img_tensor = img_tensor.unsqueeze(0)  # [1, Channel, Depth, Height, Width]
         print(f"Segmenting image with shape: {img_tensor.shape}") 
         
-        # moving tensor the the same device as model 
+        # moving tensor to the same device as model
         device = next(model.parameters()).device
         img_tensor = img_tensor.to(device)
         print(f"Image tensor moved to the same device: {device} as model.")  
         
         # forward pass of input tensor (img_tensor) through trained model  https://medium.com/@pradeepkr848115/unravelling-the-magic-a-beginners-guide-to-forward-propagation-in-neural-networks-4d247a564528
         seg_out = model(img_tensor)  # [1, num_classes, Depth, Height, Width]
-        print(f"Model output shape: {seg_out.shape}")  
+        print(f"Model output shape: {seg_out.shape}")
+        #seg_out = seg_out.squeeze().detach().cpu().numpy()
+        #print(f"segmentation output shape: {seg_out.size}, {seg_out.ndim}")
         
-        # softmax to get probabilities  https://machinelearningmastery.com/softmax-activation-function-with-python/
+    #     # softmax to get probabilities  https://machinelearningmastery.com/softmax-activation-function-with-python/
         seg_probs = torch.softmax(seg_out, dim=1)
-        print(f"After softmax: {seg_probs.shape}")  
-        
-        # class with the highest probability  https://github.com/cjohnson318/til/blob/main/python/argmax-without-numpy.md
-        seg_pred = torch.argmax(seg_probs, dim=1)  # [1, Depth, Height, Width]
-        print(f"After argmax: {seg_pred.shape}")  
-        
-    return seg_pred.squeeze(0).cpu().numpy()  # [Depth, Height, Width]
+        print(f"After softmax: {seg_probs.shape}")
+
+
+    return seg_out.squeeze().cpu().numpy()
+    #
+    #     # class with the highest probability  https://github.com/cjohnson318/til/blob/main/python/argmax-without-numpy.md
+    #     seg_pred = torch.argmax(seg_probs, dim=1)  # [1, Depth, Height, Width]
+    #     print(f"After argmax: {seg_pred.shape}")
+    #
+    # return seg_pred.squeeze(0).cpu().numpy()  # [Depth, Height, Width]
 
 
 # saving the segmentation

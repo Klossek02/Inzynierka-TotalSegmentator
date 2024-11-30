@@ -200,6 +200,7 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
     # finally, let us stack the 'image' and 'label' tensors
     batched_images = torch.stack(images, dim=0)  # shape: [batch_size, 1, 277, 277, 95]
     batched_labels = torch.stack(labels, dim=0)  # shape: [batch_size, 117, 277, 277, 95]
+    print(f"batched_images.shape: {batched_images.shape}, batched_labels.shape: {batched_labels.shape}")
 
     return {'image': batched_images, 'label': batched_labels}
 
@@ -214,7 +215,7 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
     num_workers: no. of workers for loading data 
  """
 
-def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, num_workers = 1):
+def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, num_workers = 2):
         # helper function to get paths for imgs and their corresponding lbl directories 
         def get_img_lbl_paths(ids):
             img = [] # list of img paths 
@@ -278,7 +279,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         # are not the actual augmentation, yet the preprocessing steps. These are as follows:
         # 1. Loading and ensuring the correct data format.
         # 2. Scaling intensities.
-        # 3. Resizing the image to the correct spatial dimensions. 
+        # 3. Resizing the image to the correct spatial dimensions.
 
         train_transforms = Compose([
             LoadImaged(keys=['image', 'label']),
@@ -368,4 +369,4 @@ if  __name__ == "__main__":
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True)
 
 # WARNING: since the output is big, a good practice is to type in the terminal: 
-# python dataloader.py > output.txt 
+# python dataloader.py > output.txt

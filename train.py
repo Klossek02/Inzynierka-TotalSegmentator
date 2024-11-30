@@ -306,8 +306,8 @@ def save_nifti(volume, path, index=0):
     print(f'patient_predicted_{index} is saved', end='\r')
 
 if __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201"
-    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
+    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
     print(f"Training dataloader length: {len(train_loader)}")
@@ -320,10 +320,10 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # training, valdation phase
-    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=True, patience=5)
+    #train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=True, patience=5)
 
     # saving trained model
-    torch.jit.script(model).save('model.zip')
+    #torch.jit.script(model).save('model.zip')
 
     # loading best model for testing 
     best_model = get_unet_model(num_classes = 117, in_channels = 1)

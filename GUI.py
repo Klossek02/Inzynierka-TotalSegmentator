@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 
 from stl import mesh 
-from vedo import load, Plotter
+from vedo import load, Plotter, Mesh
 from matplotlib import cm 
 from matplotlib.colors import to_rgb
 from PyQt5.QtWidgets import *
@@ -664,30 +664,47 @@ class MedicalImageViewer(QMainWindow):
             self.plotter = Plotter(qt_widget=self.vtk_widget)
             self.plotter.background("#F5F5F5")
 
-            unique_lbls = np.unique(seg_data)
-            unique_lbls = unique_lbls[unique_lbls != 0]
-            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
+
+            #unique_lbls = unique_lbls[unique_lbls != 0]
+            #self.log_message(f"Unique labels in segmentation: {unique_lbls}")
 
             volume = []
-            colors_rgb = self.get_distinct_colors(len(unique_lbls))
+            colors_rgb = self.get_distinct_colors(117)
 
-            for i, lbl in enumerate(unique_lbls):
-                organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
-                organ_mask = (seg_data == lbl).astype(np.uint8)
+            i = 0
+            for lbl in seg_data:
+                unique_lbls = np.unique(lbl)
+                print(f"unique labels: {unique_lbls}")
+                print(f"lbl size: {lbl.size}, sum: {np.sum(lbl)}")
+                #organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
+                #organ_mask = np.clip(lbl, a_min=0, a_max=1)
+                #organ_mask = np.clip(np.absolute(lbl), a_min=0, a_max=1)
+                organ_mask = lbl
+                organ_mask[organ_mask >= np.mean(lbl)] = 1
+                organ_mask[organ_mask < np.mean(lbl)] = 0
+                # if (np.min(lbl) != 0):
+                #     organ_mask[organ_mask == np.min(lbl)] = 1
+                # organ_mask = organ_mask.astype(np.uint8)
+                #organ_mask[organ_mask ]
+                print(f"organ mask size: {organ_mask.size}, sum: {np.sum(organ_mask)}")
 
                 if np.sum(organ_mask) == 0:
-                    self.log_message(f'Skipping label {lbl}.')
+                    self.log_message(f'Skipping label {organ_mask}.')
+                    i += 1
                     continue
 
-                seg_path = f'segmented_{organ_name}.stl'
-                demo.convert_to_stl(organ_mask, seg_path)
-
-                vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
-                volume.append(vol)
-                i += 1
-
+                seg_path = f'segmented_{i}.stl'
                 if os.path.exists(seg_path):
                     os.remove(seg_path)
+                demo.convert_to_stl(organ_mask, seg_path)
+
+                #vol = Mesh(inputobj=mesh, c=colors_rgb[i % len(colors_rgb)], )
+                vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
+                volume.append(vol)
+                #self.plotter.show(volume, axes=1)
+                i += 1
+
+
 
             self.plotter.show(volume, axes=1)
             self.log_message("3D visualization has been rendered successfully.")

@@ -63,7 +63,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
             scaler.update()
 
             epoch_loss += loss.item()
-            all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy().astype(np.int8))
+            all_preds.append(outputs.detach().cpu().numpy().astype(np.int8))
             all_labels.append(labels.cpu().numpy().astype(np.int8))
 
         epoch_loss /= len(train_loader)
@@ -102,7 +102,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
                         outputs = model(inputs)
                         loss = criterion(outputs, labels)
                         val_loss += loss.item()
-                        all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
+                        all_preds.append(outputs.detach().cpu().numpy())
                         all_labels.append(labels.cpu().numpy())
                         val_count += 1
                 except Exception as e:
@@ -275,21 +275,21 @@ def save_nifti(volume, path, index=0):
     print(f'patient_predicted_{index} is saved', end='\r')
 
 if __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201"
-    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
+    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
     print(f"Training dataloader length: {len(train_loader)}")
     print(f"Validation dataloader length: {len(val_loader)}")
     print(f"Test dataloader length: {len(test_loader)}")
 
-    model = get_unet_model(num_classes=117, in_channels=1)
-    criterion = DiceLoss(softmax=True, to_onehot_y=True)
+    model = get_unet_model(num_classes=118, in_channels=1)
+    criterion = DiceLoss(softmax=True, to_onehot_y=False)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # training, validation
-    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=True, patience=5)
+    #train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=True, patience=5)
 
     # saving trained model
     torch.jit.script(model).save('model.zip')

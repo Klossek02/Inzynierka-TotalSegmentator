@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 from torch import optim
 import nibabel as nib
 
-
 def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -63,7 +62,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
             scaler.update()
 
             epoch_loss += loss.item()
-            all_preds.append(outputs.detach().cpu().numpy().astype(np.int8))
+            all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy().astype(np.int8))
             all_labels.append(labels.cpu().numpy().astype(np.int8))
 
         epoch_loss /= len(train_loader)
@@ -102,7 +101,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
                         outputs = model(inputs)
                         loss = criterion(outputs, labels)
                         val_loss += loss.item()
-                        all_preds.append(outputs.detach().cpu().numpy())
+                        all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
                         all_labels.append(labels.cpu().numpy())
                         val_count += 1
                 except Exception as e:
@@ -199,7 +198,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
 
 
 
-def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"): 
+def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"):
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -215,7 +214,7 @@ def test(model, test_loader, device=None, use_amp=False, save_predictions=False,
         test_count = 0
 
         os.makedirs(save_path, exist_ok=True) if save_predictions else None
-        
+
         with torch.no_grad():
             for i, batch in enumerate(test_loader):
                 if batch is None:
@@ -283,8 +282,8 @@ if __name__ == "__main__":
     print(f"Validation dataloader length: {len(val_loader)}")
     print(f"Test dataloader length: {len(test_loader)}")
 
-    model = get_unet_model(num_classes=118, in_channels=1)
-    criterion = DiceLoss(softmax=True, to_onehot_y=False)
+    model = get_unet_model(num_classes=117, in_channels=1)
+    criterion = DiceLoss(softmax=True, to_onehot_y=True)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
@@ -294,7 +293,7 @@ if __name__ == "__main__":
     # saving trained model
     torch.jit.script(model).save('model.zip')
 
-    # loading the best model for testing 
+    # loading the best model for testing
     best_model = get_unet_model(num_classes=117, in_channels=1)
     best_model.load_state_dict(torch.load("best_metric_model.pth"))
     best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))

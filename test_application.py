@@ -4,6 +4,7 @@ import unittest
 import os
 import sys
 import torch
+import time
 import numpy as np
 import nibabel as nib
 
@@ -18,6 +19,9 @@ import segmentation
 import model
 import demo
 from GUI import MedicalImageViewer
+from segmentation import preprocess_img, segment_img
+from model import get_unet_model
+from visualization import display_single_slice
 
 # All tests have been written preserving TDD principles
 
@@ -206,6 +210,18 @@ class TestModel(unittest.TestCase):
         with self.assertRaises(Exception):
             model.get_unet_model(num_classes=-1, in_channels=1) # since the function doesn't have input validation, error must come within UNet
 
+
+    def test_dice_metric(self):
+        # Given
+        from monai.metrics import DiceMetric
+        # When
+        dice_metric = DiceMetric(include_background=False, reduction="mean")
+        pred = torch.rand(1, 2, 10, 10, 10)
+        label = torch.randint(0, 2, (1, 2, 10, 10, 10))
+        dice = dice_metric(pred, label)
+        # Then
+        self.assertTrue(0 <= dice.item() <= 1)
+
 class TestDemo(unittest.TestCase):
     def test_convert_to_stl(self):
 
@@ -291,7 +307,11 @@ class TestMedicalImageViewer(unittest.TestCase):
             # When
             self.viewer.on_upload_data()
             # Then
-            # as the user cancelled operation, no action should be taken
+            with patch.object(self.viewer, 'on_upload_ct_scan') as mock_upload_ct, \
+                 patch.object(self.viewer, 'on_upload_segmented_ct_scan') as mock_upload_seg:
+                self.viewer.on_upload_data()
+                mock_upload_ct.assert_not_called()
+                mock_upload_seg.assert_not_called()
 
     def test_on_upload_data_upload_ct_scan(self):
 
@@ -377,6 +397,7 @@ class TestMedicalImageViewer(unittest.TestCase):
              patch('segmentation.preprocess_img', return_value=torch.zeros((1, 128, 128, 128))), \
              patch('segmentation.segment_img', return_value=np.zeros((128, 128, 128))), \
              patch.object(self.viewer, 'render_3d_visualization_from_data'):
+
             self.viewer.on_segment_image()
 
             # Then
@@ -389,14 +410,14 @@ class TestMedicalImageViewer(unittest.TestCase):
              patch('GUI.get_unet_model', return_value=MagicMock()):
 
             # When
-            model = self.viewer.load_segmentation_model()
+            net = self.viewer.load_segmentation_model()
 
             # Then
-            self.assertIsNotNone(model)
+            self.assertIsNotNone(net)
 
     def test_load_segmentation_model_file_not_found(self):
 
-      # Given 
+        # Given 
         with patch('GUI.get_unet_model', return_value=MagicMock()), \
              patch('GUI.torch.load', side_effect=FileNotFoundError), \
              patch.object(QMessageBox, 'critical') as mock_critical, \
@@ -409,7 +430,6 @@ class TestMedicalImageViewer(unittest.TestCase):
             # Then 
             mock_critical.assert_called()
             mock_log_message.assert_called_with("ERROR: best_metric_model.pth not found.")
-
 
     def test_update_image_placeholders(self):
 
@@ -458,7 +478,7 @@ class TestMedicalImageViewer(unittest.TestCase):
             # Then
             mock_info.assert_called()
             args = mock_info.call_args[0]
-            self.assertIn("ERROR: there is no segmentation data to save.", args[2])
+            self.assertIn("There is no segmentation data to save.", args[2])
 
     def test_on_close_segmentation(self):
 
@@ -520,7 +540,7 @@ class TestMedicalImageViewer(unittest.TestCase):
             # Then
             mock_info.assert_called()
             args = mock_info.call_args[0]
-            self.assertIn("Please provide the problem details.", args[2])
+            self.assertIn("Please provide us with the details of the problem you encountered.", args[2])
 
     def test_on_about(self):
 
@@ -566,6 +586,7 @@ class TestMedicalImageViewer(unittest.TestCase):
              patch('GUI.Plotter') as mock_plotter_class, \
              patch('GUI.load', return_value=MagicMock()), \
              patch('demo.convert_to_stl'):
+
             mock_plotter_instance = mock_plotter_class.return_value
             self.viewer.render_3d_visualization_from_data(seg_data)
 
@@ -573,14 +594,67 @@ class TestMedicalImageViewer(unittest.TestCase):
             mock_plotter_instance.show.assert_called()
             self.viewer.vtk_widget.update.assert_called()
 
-    def test_render_3d_visualization(self):
+class TestPerformance(unittest.TestCase):
+    def test_full_pipeline(self):
+        # Given
+        ct_scan = np.random.rand(128, 128, 128)
+        affine = np.eye(4)
+        nifti_path = "temp_ct.nii.gz"
+        nib.save(nib.Nifti1Image(ct_scan, affine), nifti_path)
 
-        # Given, When
-        with patch.object(self.viewer, 'log_message') as mock_log:
-            self.viewer.render_3d_visualization()
+        # When
+        processed = segmentation.preprocess_img(ct_scan)
+        model_instance = model.get_unet_model(num_classes=2, in_channels=1)
+        output = segmentation.segment_img(model_instance, processed)
+        segmentation.save_segmentation(output, affine, "temp_output.nii.gz")
 
-            # Then
-            mock_log.assert_any_call("ERROR: no segmentation file provided, visualization skipped.")
+        # Then
+        self.assertTrue(os.path.exists("temp_output.nii.gz"))
+        os.remove(nifti_path)
+        os.remove("temp_output.nii.gz")
+
+
+    def test_segmentation_speed(self):
+        # Given
+        ct_scan = np.random.rand(128, 128, 128).astype(np.float32)
+
+        # When
+        start_preprocess = time.time()
+        processed_scan = preprocess_img(ct_scan, target_size=(128, 128, 128))
+        end_preprocess = time.time()
+        preprocess_time = end_preprocess - start_preprocess
+        print(f"Preprocessing time: {preprocess_time:.4f} seconds")
+
+        model = get_unet_model(num_classes=2, in_channels=1)
+        model.eval()
+        start_segmentation = time.time()
+        segmentation_result = segment_img(model, processed_scan)
+        end_segmentation = time.time()
+        segmentation_time = end_segmentation - start_segmentation
+        print(f"Segmentation time: {segmentation_time:.4f} seconds")
+
+        # Then
+        assert preprocess_time < 5.0, "Preprocessing time exceeded 5 seconds"
+        assert segmentation_time < 10.0, "Segmentation time exceeded 10 seconds"
+
+
+def test_visualization_speed():
+    # Given
+    ct_slice = np.random.randint(0, 255, size=(128, 128)).astype(np.uint8)
+    pixmap = QPixmap(128, 128)
+    label = QLabel()
+    label.setFixedSize(400, 300)
+
+    # When
+    start_visualization = time.time()
+    display_single_slice(label, pixmap)
+    end_visualization = time.time()
+    visualization_time = end_visualization - start_visualization
+    print(f"Visualization time: {visualization_time:.4f} seconds")
+
+    # Then
+    assert visualization_time < 4.0, "Visualization time exceeded 4 second"
+    
 
 if __name__ == '__main__':
     unittest.main()

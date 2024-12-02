@@ -155,10 +155,10 @@ class TotalSeg_Dataset_Ts(Dataset):
 
     def __getitem__(self, idx): # loading image paths for given index 
         img_path = self.img_paths[idx]   # get img file path for current index 
-        img = nib.load(img_path).get_fdata()  # load img data with NIfTI format
+        #img = nib.load(img_path).get_fdata()  # load img data with NIfTI format
 
     
-        data = {'image': img } # organizing data into a dictionary (in case we want to add more data later)
+        data = {'image': img_path } # organizing data into a dictionary (in case we want to add more data later)
 
         if self.transform is not None: # if transform is provided 
             data = self.transform(data) # applying any transform 
@@ -204,7 +204,25 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
 
     return {'image': batched_images, 'label': batched_labels}
 
+def batch_collate_fn_for_test(batch):  # here we called arg 'batch' instead of data
 
+    # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
+    filtered_batch = [
+        sample for sample in batch
+        if sample is not None
+        ]
+
+    if len(filtered_batch) == 0: # if not valid samples present
+        return None
+
+    # then, let us group the samples by 'image' and 'label'
+    images = [sample['image'] for sample in filtered_batch]
+
+    # finally, let us stack the 'image' and 'label' tensors
+    batched_images = torch.stack(images, dim=0)  # shape: [batch_size, 1, 277, 277, 95]
+    print(f"batched_images.shape: {batched_images.shape}")
+
+    return {'image': batched_images}
 
 # function that loads and preapres data for training, validation and testing 
 """
@@ -255,7 +273,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         # getting img and lbl paths for each split 
         train_img, train_lbl = get_img_lbl_paths(train_ids)
         val_img, val_lbl = get_img_lbl_paths(val_ids)
-        test_img, _ = get_img_lbl_paths(test_ids) # no labels for testing set 
+        test_img, test_lbl = get_img_lbl_paths(test_ids) # no labels for testing set
 
         # Another check: printing image-label pairs for training and validation splits
         print(f'\n LOADED {len(train_img)} training images.')
@@ -266,11 +284,14 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         for img, lbl in zip(val_img, val_lbl):
             print(f'Validation Image: {img} | Label: {lbl}')
 
+        print(f'\n LOADED {len(test_img)} validation images.')
+        for img, lbl in zip(test_img, test_lbl):
+            print(f'Validation Image: {img} | Label: {lbl}')
         #  printing image pairs for testing split
-        print(f"\n Number of test images: {len(test_img)}")
+        #print(f"\n Number of test images: {len(test_img)}")
 
-        for img in test_img:
-            print(f"Image: {img}")
+        #for img in test_img:
+        #    print(f"Image: {img}")
 
 
         # defining transforms for training, validation and testing set  --> DATA AUGMENTATION STEP
@@ -308,11 +329,11 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
 
 
         test_transforms = Compose([
-            LoadImaged(keys=['image']),
-            EnsureChannelFirstd(keys=['image']),
+            LoadImaged(keys=['image', 'label']),
+            EnsureChannelFirstd(keys=['image', 'label']),
             ScaleIntensityd(keys=['image']),
-            ResizeWithPadOrCropd(keys=['image'], spatial_size=(128, 128, 128)),  
-            EnsureTyped(keys=['image']),
+            ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size=(128, 128, 128)),
+            EnsureTyped(keys=['image', 'label']),
         ])
 
 
@@ -331,8 +352,10 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             transform= val_transforms
         )
 
-        test_ds = TotalSeg_Dataset_Ts(
-            test_img, 
+        test_ds = TotalSeg_Dataset_Tr_Val(
+            test_img,
+            test_lbl,
+            cmb_masks = combine_masks,
             transform= test_transforms
         )
 

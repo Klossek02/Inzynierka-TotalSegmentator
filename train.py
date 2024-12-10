@@ -20,7 +20,7 @@ from torch import optim
 import nibabel as nib
 
 
-def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=False, patience=3):
+def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
@@ -187,6 +187,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.legend()
     plt.title('Training and validation loss')
     plt.show()
+    plt.savefig('Training_validation_loss.png')
 
     plt.figure()
     plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Training accuracy')
@@ -196,6 +197,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.legend()
     plt.title('Training and validation accuracy')
     plt.show()
+    plt.savefig('Training_validation_accuracy.png')
 
     plt.figure()
     plt.plot(range(1, len(val_ious) + 1), val_ious, label='Validation IoU', color='red')
@@ -204,6 +206,8 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.legend()
     plt.title('Validation IoU')
     plt.show()
+    plt.savefig('validation_IoU.png')
+
 
     plt.figure()
     plt.plot(range(1, len(val_dices) + 1), val_dices, label='Validation dice', color='blue')
@@ -212,6 +216,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.legend()
     plt.title('Validation dice coefficient')
     plt.show()
+    plt.savefig('validation_dice.png')
 
     plt.figure()
     plt.plot(range(1, len(val_hausdorffs) + 1), val_hausdorffs, label='Validation Hausdorff distance', color='green')
@@ -220,6 +225,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.legend()
     plt.title('Validation Hausdorff distance')
     plt.show()
+    plt.savefig('validation_hd.png')
 
 
 def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"): 
@@ -227,17 +233,6 @@ def test(model, test_loader, device=None, use_amp=False, save_predictions=False,
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
-    num_classes = 117  
-    criterion = DiceLoss(softmax=True, to_onehot_y=True)
-    dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
-    hausdorff_metric = HausdorffDistanceMetric(percentile=95, directed=False)
-
-    test_loss = 0
-    all_preds = []
-    all_labels = []
-    all_dice_scores = []
-    all_hausdorff_distances = []
-    test_count = 0
 
     if save_predictions:
         os.makedirs(save_path, exist_ok=True)
@@ -249,54 +244,19 @@ def test(model, test_loader, device=None, use_amp=False, save_predictions=False,
                 continue
 
             inputs = batch["image"].to(device)
-            labels = batch["label"].to(device)
 
             try:
                 with torch.cuda.amp.autocast(enabled=use_amp):
                     outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    test_loss += loss.item()
-
-                    # metrics as above
-                    softmax = torch.nn.functional.softmax(outputs, dim=1)
-                    labels_one_hot = one_hot(labels, num_classes=num_classes)
-                    dice_score = dice_metric(y_pred=softmax, y=labels_one_hot)
-                    all_dice_scores.append(dice_score.item())
-                    preds_bin = torch.argmax(softmax, dim=1).unsqueeze(1)  
-                    hausdorff_distance = hausdorff_metric(y_pred=preds_bin, y=labels)
-                    all_hausdorff_distances.append(hausdorff_distance.item())
-
-                    preds = torch.argmax(outputs, dim=1)
-                    all_preds.append(preds.cpu().numpy())
-                    all_labels.append(labels.cpu().numpy())
 
                     if save_predictions:
+                        preds = torch.argmax(outputs, dim=1)
                         for idx in range(inputs.size(0)):
                             save_nifti(preds[idx].cpu().numpy(), save_path, index=i * test_loader.batch_size + idx)
-
-                test_count += 1
 
             except Exception as e:
                 print(f"ERROR: Exception occurred during testing - batch {i}: {e}")
                 continue
-
-    if test_count > 0:
-        avg_test_loss = test_loss / test_count
-        all_labels_np = np.concatenate(all_labels)
-        all_preds_np = np.concatenate(all_preds)
-
-        test_accuracy = accuracy_score(all_labels_np.flatten(), all_preds_np.flatten())
-        test_iou = jaccard_score(all_labels_np.flatten(), all_preds_np.flatten(), average='macro')
-        avg_dice = np.mean(all_dice_scores)
-        avg_hausdorff_distance = np.mean(all_hausdorff_distances)
-
-        print(f"Test loss: {avg_test_loss:.4f}")
-        print(f"Test accuracy: {test_accuracy:.4f}")
-        print(f"Test IoU (Jaccard score): {test_iou:.4f}")
-        print(f"Test dice coefficient: {avg_dice:.4f}")
-        print(f"Test Hausdorff distance (95th percentile): {avg_hausdorff_distance:.4f}")
-    else:
-        print("No test data available. Test batches invalid.")
 
 
 def save_nifti(volume, path, index=0):
@@ -306,8 +266,8 @@ def save_nifti(volume, path, index=0):
     print(f'patient_predicted_{index} is saved', end='\r')
 
 if __name__ == "__main__":
-    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"
-    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "Totalsegmentator_dataset_v201"
+    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
     print(f"Training dataloader length: {len(train_loader)}")
@@ -320,10 +280,10 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # training, valdation phase
-    #train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=True, patience=5)
+    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=True, patience=5)
 
     # saving trained model
-    #torch.jit.script(model).save('model.zip')
+    torch.jit.script(model).save('model.zip')
 
     # loading best model for testing 
     best_model = get_unet_model(num_classes = 117, in_channels = 1)
@@ -331,4 +291,4 @@ if __name__ == "__main__":
     best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     # testing phase
-    test(best_model, test_loader, use_amp=True, save_predictions=True, save_path='test_predictions')
+    #test(best_model, test_loader, use_amp=True, save_predictions=True, save_path='test_predictions')

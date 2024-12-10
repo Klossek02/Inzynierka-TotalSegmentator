@@ -12,51 +12,137 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from monai.transforms import (
     Compose, EnsureChannelFirstd, EnsureTyped, LoadImaged, ScaleIntensityd,
-    RandSpatialCropd, RandRotate90d, RandAffined, RandZoomd, RandAxisFlipd,
-    RandGaussianNoised, Rand3DElasticd, ResizeWithPadOrCropd, ConcatItemsd
+    RandSpatialCropd, RandRotate90d, RandAffined,
+    RandGaussianNoised, ResizeWithPadOrCropd
 )
 from monai.data import Dataset, CacheDataset
 
-# We are working on the classification of various body parts, grouped into 117 anatomical structures. 
-# Our aim is to simplify things by combining masks for these structures into single binary mask (eg. lung lobes into whole lung)
+# we are working on the classification of various body parts, grouped into 117 anatomical structures. 
+# our aim is to simplify things by combining masks for these structures into single binary mask (eg. lung lobes into whole lung)
 # the exact grouping is based on the README here: https://github.com/openmedlab/Awesome-Medical-Dataset/blob/main/resources/TotalSegmentator_v2.md
 
-# Note that for some classes the names differ from the standarized anatomical names. The mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
+# note that for some classes the names differ from the standarized anatomical names. The mapping can be found here: https://github.com/wasserth/TotalSegmentator/blob/master/totalsegmentator/map_to_binary.py
 
-main_classes_CT = {
-"skeleton": [
-'skull', 'clavicula_left', 'clavicula_right', 'humerus_left', 'humerus_right', 'scapula_left', 'scapula_right', 'sternum',
-'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5', 'rib_left_6', 'rib_left_7', 'rib_left_8',
-'rib_left_9', 'rib_left_10', 'rib_left_11', 'rib_left_12', 'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4',
-'rib_right_5', 'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9', 'rib_right_10', 'rib_right_11', 'rib_right_12',
-'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4', 'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 'vertebrae_L1',
-'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5', 'vertebrae_S1', 'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3',
-'vertebrae_T4', 'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8', 'vertebrae_T9', 'vertebrae_T10',
-'vertebrae_T11', 'costal_cartilages', 'vertebrae_T12', 'hip_left', 'hip_right', 'sacrum', 'femur_left', 'femur_right'],
-
-"cardiovascular": [
-'common_carotid_artery_left', 'common_carotid_artery_right', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right',
-'subclavian_artery_left', 'subclavian_artery_right', 'brachiocephalic_trunk', 'superior_vena_cava', 'pulmonary_vein',
-'atrial_appendage_left', 'aorta', 'heart', 'portal_vein_and_splenic_vein', 'inferior_vena_cava', 'iliac_artery_left',
-'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right'],
-
-"gastrointestinal":[
-'esophagus', 'stomach', 'duodenum', 'small_bowel', 'colon', 'urinary_bladder'],
-
-
-"muscles":[
-'autochthon_left', 'autochthon_right', 'iliopsoas_left', 'iliopsoas_right', 'gluteus_minimus_left', 
-'gluteus_minimus_right', 'gluteus_medius_left', 'gluteus_medius_right', 'gluteus_maximus_left', 
-'gluteus_maximus_right'],
-
-"others":[
-'brain', 'spinal_cord', 'thyroid_gland', 'trachea', 'lung_upper_lobe_left', 'lung_upper_lobe_right', 
-'lung_middle_lobe_right', 'lung_lower_lobe_left', 'lung_lower_lobe_right','adrenal_gland_left', 
-'adrenal_gland_right', 'spleen', 'liver', 'gallbladder', 'kidney_left', 'kidney_right', 'kidney_cyst_left',
-'kidney_cyst_right', 'pancreas', 'prostate']
-
-}
-
+# classes of TotalSegmentator v2 dataset:
+total = {
+        1: "spleen",
+        2: "kidney_right",
+        3: "kidney_left",
+        4: "gallbladder",
+        5: "liver",
+        6: "stomach",
+        7: "pancreas",
+        8: "adrenal_gland_right",
+        9: "adrenal_gland_left",
+        10: "lung_upper_lobe_left",
+        11: "lung_lower_lobe_left",
+        12: "lung_upper_lobe_right",
+        13: "lung_middle_lobe_right",
+        14: "lung_lower_lobe_right",
+        15: "esophagus",
+        16: "trachea",
+        17: "thyroid_gland",
+        18: "small_bowel",
+        19: "duodenum",
+        20: "colon",
+        21: "urinary_bladder",
+        22: "prostate",
+        23: "kidney_cyst_left",
+        24: "kidney_cyst_right",
+        25: "sacrum",
+        26: "vertebrae_S1",
+        27: "vertebrae_L5",
+        28: "vertebrae_L4",
+        29: "vertebrae_L3",
+        30: "vertebrae_L2",
+        31: "vertebrae_L1",
+        32: "vertebrae_T12",
+        33: "vertebrae_T11",
+        34: "vertebrae_T10",
+        35: "vertebrae_T9",
+        36: "vertebrae_T8",
+        37: "vertebrae_T7",
+        38: "vertebrae_T6",
+        39: "vertebrae_T5",
+        40: "vertebrae_T4",
+        41: "vertebrae_T3",
+        42: "vertebrae_T2",
+        43: "vertebrae_T1",
+        44: "vertebrae_C7",
+        45: "vertebrae_C6",
+        46: "vertebrae_C5",
+        47: "vertebrae_C4",
+        48: "vertebrae_C3",
+        49: "vertebrae_C2",
+        50: "vertebrae_C1",
+        51: "heart",
+        52: "aorta",
+        53: "pulmonary_vein",
+        54: "brachiocephalic_trunk",
+        55: "subclavian_artery_right",
+        56: "subclavian_artery_left",
+        57: "common_carotid_artery_right",
+        58: "common_carotid_artery_left",
+        59: "brachiocephalic_vein_left",
+        60: "brachiocephalic_vein_right",
+        61: "atrial_appendage_left",
+        62: "superior_vena_cava",
+        63: "inferior_vena_cava",
+        64: "portal_vein_and_splenic_vein",
+        65: "iliac_artery_left",
+        66: "iliac_artery_right",
+        67: "iliac_vena_left",
+        68: "iliac_vena_right",
+        69: "humerus_left",
+        70: "humerus_right",
+        71: "scapula_left",
+        72: "scapula_right",
+        73: "clavicula_left",
+        74: "clavicula_right",
+        75: "femur_left",
+        76: "femur_right",
+        77: "hip_left",
+        78: "hip_right",
+        79: "spinal_cord",
+        80: "gluteus_maximus_left",
+        81: "gluteus_maximus_right",
+        82: "gluteus_medius_left",
+        83: "gluteus_medius_right",
+        84: "gluteus_minimus_left",
+        85: "gluteus_minimus_right",
+        86: "autochthon_left",
+        87: "autochthon_right",
+        88: "iliopsoas_left",
+        89: "iliopsoas_right",
+        90: "brain",
+        91: "skull",
+        92: "rib_left_1",
+        93: "rib_left_2",
+        94: "rib_left_3",
+        95: "rib_left_4",
+        96: "rib_left_5",
+        97: "rib_left_6",
+        98: "rib_left_7",
+        99: "rib_left_8",
+        100: "rib_left_9",
+        101: "rib_left_10",
+        102: "rib_left_11",
+        103: "rib_left_12",
+        104: "rib_right_1",
+        105: "rib_right_2",
+        106: "rib_right_3",
+        107: "rib_right_4",
+        108: "rib_right_5",
+        109: "rib_right_6",
+        110: "rib_right_7",
+        111: "rib_right_8",
+        112: "rib_right_9",
+        113: "rib_right_10",
+        114: "rib_right_11",
+        115: "rib_right_12",
+        116: "sternum",
+        117: "costal_cartilages"
+    }
 
 # class for loading training, validation images and corresponding segmentations
 # we decided to keep the testing set separate since the data processing in this phase differ from one in training and validation steps due to lack of labels
@@ -70,8 +156,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         self.cmb_masks = cmb_masks
         self.transform = transform
         
-
-    def __len__(self): # returns tot. number of images 
+    def __len__(self): # returns total number of images 
         return len(self.img_paths)
 
     def __getitem__(self, idx): # loading image and label paths for given index 
@@ -80,7 +165,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
 
         try:
             # since labels have a default path defined as: "Totalsegmentator_dataset_v201\s****\segmentations",
-            # we need to ensure that we can access the *.nii.gz files from that directory as these will be necessary for model training, 
+            # we need to ensure that we can access the *.nii.gz files from that directory (s****) as these will be necessary for model training and ct scan visualization,
             # not the folder 'segmentations' itself. 
         
             lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz')) 
@@ -88,9 +173,9 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
 
             # checking if the label file exists 
             if len(lbl_files) == 0:
-                raise FileNotFoundError(f'ERROR: missing label for {img_path}. Cannot work out file type.')
+                raise FileNotFoundError(f'ERROR: missing label for {img_path}.')
 
-            if self.cmb_masks: # case when need to combine mask into single label 
+            if self.cmb_masks: # case when need to combine mask into a single label 
                 cmb_lbl_path = self.combine_masks(lbl_path)
                 lbl_files = cmb_lbl_path # making sure that lbl_files contains only combined mask
 
@@ -109,7 +194,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         return None
 
 
-    # this function combines individual masks into a single binary mask. 
+    # this function combines individual masks into a single binary mask
     def combine_masks(self, lbl_dir): 
         out_path = os.path.join(lbl_dir, 'combined_mask.nii.gz')  # https://docs.python.org/3/library/os.path.html
 
@@ -117,31 +202,27 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
             mask_files = glob.glob(os.path.join(lbl_dir, '*.nii.gz')) # get all nii.gz files (mask files)
             combined_mask = None
 
-            # assiging uniqe label, numeric one, to each class in order to distinguish it 
-            class_labels = {class_name: idx + 1 for idx, class_name in enumerate(main_classes_CT)}
+
+            for class_id, organ_name in total.items():
+                struct_path = os.path.join(lbl_dir, f"{organ_name}.nii.gz")
+                if os.path.exists(struct_path):    
+                    mask = nib.load(struct_path).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data            
+                    if combined_mask is None:
+                        combined_mask = np.zeros_like(mask) # https://numpy.org/doc/stable/reference/generated/numpy.zeros_like.html - generating empty mask
+                    combined_mask[mask > 0] = 1 # any non-zero value in the current mask will be assigned to the class label
             
-            # now, iterate through all anatomical groups and combine their structure masks 
-            for class_group, structures in main_classes_CT.items():
-                for struct in structures:
-                    structure_mask_file = os.path.join(lbl_dir, f'{struct}.nii.gz') 
+            if combined_mask is not None:
+                affine = nib.load(mask_files[0]).affine # loading affine matrix: https://medium.com/@junfeng142857/affine-transformation-why-3d-matrix-for-a-2d-transformation-8922b08bce75
+                combined_mask_img = nib.Nifti1Image(combined_mask.astype(np.uint8), affine)
+                nib.save(combined_mask_img, out_path)
 
-                    # checking if this specific structure's mask exists 
-                    if os.path.exists(structure_mask_file):
-                        mask = nib.load(structure_mask_file).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data
-
-                        if combined_mask is None: 
-                            combined_mask = np.zeros_like(mask) # https://numpy.org/doc/stable/reference/generated/numpy.zeros_like.html - generating empty mask
-
-                        combined_mask[mask > 0] = class_labels[class_group] # any non-zero value in the current mask will be assigned to the class label
-
-            # covert the combined mask into NIfTI format and save it
-            affine = nib.load(mask_files[0]).affine
-            combined_mask_img = nib.Nifti1Image(combined_mask.astype(np.uint8), affine=affine)
-            nib.save(combined_mask_img, out_path)
-
-
-        return out_path # return the path to the combined mask file
-
+            else:
+                combined_mask = np.zeros((128,128,128), dtype=np.uint8) # https://numpy.org/doc/2.1/reference/generated/numpy.zeros.html    
+                nifti = nib.Nifti1Image(combined_mask, np.eye(4))
+                nib.save(nifti, out_path)
+            
+        return out_path # returning path to combined mask file 
+      
 
 # class for loading test images 
 class TotalSeg_Dataset_Ts(Dataset):
@@ -155,9 +236,6 @@ class TotalSeg_Dataset_Ts(Dataset):
 
     def __getitem__(self, idx): # loading image paths for given index 
         img_path = self.img_paths[idx]   # get img file path for current index 
-        #img = nib.load(img_path).get_fdata()  # load img data with NIfTI format
-
-    
         data = {'image': img_path } # organizing data into a dictionary (in case we want to add more data later)
 
         if self.transform is not None: # if transform is provided 
@@ -173,7 +251,8 @@ class TotalSeg_Dataset_Ts(Dataset):
 
 class Convert_To_Binary: 
     def __call__(self, key): # key - dictionary with keys 'img' and 'label'
-        key['label'] = torch.where(key['label']> 0, 1, 0)
+        key['label'] = torch.where(key['label']> 0, torch.tensor(1, dtype=key['label'].dtype), torch.tensor(0, dtype=key['label'].dtype))
+        
         return key 
 
 
@@ -185,10 +264,7 @@ class Convert_To_Binary:
 def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
 
     # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
-    filtered_batch = [
-        sample for sample in batch
-        if sample is not None 
-        ]
+    filtered_batch = [sample for sample in batch if sample is not None]
 
     if len(filtered_batch) == 0: # if not valid samples present 
         return None 
@@ -204,13 +280,10 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
 
     return {'image': batched_images, 'label': batched_labels}
 
-def batch_collate_fn_for_test(batch):  # here we called arg 'batch' instead of data
 
+def batch_collate_fn_for_test(batch):  # here we called arg 'batch' instead of data
     # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
-    filtered_batch = [
-        sample for sample in batch
-        if sample is not None
-        ]
+    filtered_batch = [sample for sample in batch if sample is not None]
 
     if len(filtered_batch) == 0: # if not valid samples present
         return None
@@ -262,7 +335,6 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         print('Metadata preview:')
         print(meta_df.head(10))
 
-
         # now after confirming, extract train/test/val IDs 
         train_ids = meta_df[meta_df['split'] == 'train']['image_id'].tolist()
         val_ids = meta_df[meta_df['split'] == 'val']['image_id'].tolist()
@@ -273,9 +345,9 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         # getting img and lbl paths for each split 
         train_img, train_lbl = get_img_lbl_paths(train_ids)
         val_img, val_lbl = get_img_lbl_paths(val_ids)
-        test_img, test_lbl = get_img_lbl_paths(test_ids) # no labels for testing set
+        test_img, _ = get_img_lbl_paths(test_ids) # no labels for testing set
 
-        # Another check: printing image-label pairs for training and validation splits
+        # another check: printing image-label pairs for training and validation splits
         print(f'\n LOADED {len(train_img)} training images.')
         for img, lbl in zip(train_img, train_lbl):
             print(f'Training Image: {img} | Label: {lbl}')
@@ -284,14 +356,10 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         for img, lbl in zip(val_img, val_lbl):
             print(f'Validation Image: {img} | Label: {lbl}')
 
-        print(f'\n LOADED {len(test_img)} validation images.')
-        for img, lbl in zip(test_img, test_lbl):
-            print(f'Validation Image: {img} | Label: {lbl}')
-        #  printing image pairs for testing split
-        #print(f"\n Number of test images: {len(test_img)}")
+        print(f'\nLOADED {len(test_img)} testing images.')
+        for img in test_img:
+            print(f'Test Image: {img}')
 
-        #for img in test_img:
-        #    print(f"Image: {img}")
 
 
         # defining transforms for training, validation and testing set  --> DATA AUGMENTATION STEP
@@ -310,10 +378,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
             RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
             RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
-            #RandZoomd(keys=['image', 'label'], prob = 0.7, min_zoom=1.1 , max_zoom = 1.2, mode=['trilinear', 'nearest'], align_corners=True),
-            #RandAxisFlipd(keys = ['image', 'label'], prob = 0.5),
             RandGaussianNoised(keys = ['image'], prob = 0.5),
-            #Rand3DElasticd(keys=['image, label'], prob = 0.2, sigma_range = (5, 5, 5), magnitude_range= (1.1, 2), mode = ['bilinear, nearest']),
             ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
             Convert_To_Binary(),
         ])
@@ -329,11 +394,11 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
 
 
         test_transforms = Compose([
-            LoadImaged(keys=['image', 'label']),
-            EnsureChannelFirstd(keys=['image', 'label']),
+            LoadImaged(keys=['image']),
+            EnsureChannelFirstd(keys=['image']),
             ScaleIntensityd(keys=['image']),
-            ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size=(128, 128, 128)),
-            EnsureTyped(keys=['image', 'label']),
+            ResizeWithPadOrCropd(keys=['image',], spatial_size=(128, 128, 128)),
+            EnsureTyped(keys=['image']),
         ])
 
 
@@ -352,10 +417,8 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             transform= val_transforms
         )
 
-        test_ds = TotalSeg_Dataset_Tr_Val(
+        test_ds = TotalSeg_Dataset_Ts(
             test_img,
-            test_lbl,
-            cmb_masks = combine_masks,
             transform= test_transforms
         )
 
@@ -381,7 +444,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             batch_size = batch_size, 
             shuffle = False, 
             num_workers = num_workers,
-            collate_fn = batch_collate_fn
+            collate_fn = batch_collate_fn_for_test
         )
 
         return train_loader, val_loader, test_loader
@@ -392,4 +455,4 @@ if  __name__ == "__main__":
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True)
 
 # WARNING: since the output is big, a good practice is to type in the terminal: 
-# python dataloader.py > output.txt
+# python dataloader.py > output_dataloader.txt

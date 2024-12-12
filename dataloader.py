@@ -169,7 +169,6 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
             # not the folder 'segmentations' itself. 
         
             lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz')) 
-            print('lbl_files:', lbl_files)
 
             # checking if the label file exists 
             if len(lbl_files) == 0:
@@ -194,22 +193,22 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
         return None
 
 
-    # this function combines individual masks into a single binary mask
+    # this function combines individual labels into a single multiple-class mask
     def combine_masks(self, lbl_dir): 
         out_path = os.path.join(lbl_dir, 'combined_mask.nii.gz')  # https://docs.python.org/3/library/os.path.html
 
-        if not os.path.exists(out_path):  # check if the combined mask already exists to avoid recalculation
+        if not os.path.exists(out_path):  # check if the combined mask already exists
             mask_files = glob.glob(os.path.join(lbl_dir, '*.nii.gz')) # get all nii.gz files (mask files)
             combined_mask = None
 
-
+            # creating one multiple-class mask: 
             for class_id, organ_name in total.items():
                 struct_path = os.path.join(lbl_dir, f"{organ_name}.nii.gz")
                 if os.path.exists(struct_path):    
                     mask = nib.load(struct_path).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data            
                     if combined_mask is None:
                         combined_mask = np.zeros_like(mask) # https://numpy.org/doc/stable/reference/generated/numpy.zeros_like.html - generating empty mask
-                    combined_mask[mask > 0] = 1 # any non-zero value in the current mask will be assigned to the class label
+                    combined_mask[mask > 0] = class_id # any non-zero value in the current mask will be assigned to the class label
             
             if combined_mask is not None:
                 affine = nib.load(mask_files[0]).affine # loading affine matrix: https://medium.com/@junfeng142857/affine-transformation-why-3d-matrix-for-a-2d-transformation-8922b08bce75
@@ -244,24 +243,12 @@ class TotalSeg_Dataset_Ts(Dataset):
         return data
 
 
-# class for converting masks to binary - 0 or 1
-# it converts a non-zero label values to 1, turning multi-class segmentation into binary segmentation (presence vs. absence)
-# https://medium.com/@mhamdaan/multi-class-semantic-segmentation-with-u-net-pytorch-ee81a66bba89
-# https://www.sciencedirect.com/science/article/pii/S0167839621000182
-
-class Convert_To_Binary: 
-    def __call__(self, key): # key - dictionary with keys 'img' and 'label'
-        key['label'] = torch.where(key['label']> 0, torch.tensor(1, dtype=key['label'].dtype), torch.tensor(0, dtype=key['label'].dtype))
-        
-        return key 
-
-
 # in this step we create a collate function which handles "None" batches. 
     # this custom function returns either dict ('image': image_tensor of size shape [1, 277, 277, 95], 'label': label_tensor of size shape [117, 277, 277, 95]) or None in case 
     # all samples are invalid 
     # https://lukesalamone.github.io/posts/custom-pytorch-collate/
     # https://pytorch.org/docs/stable/_modules/torch/utils/data/_utils/collate.html#default_collate
-def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
+def batch_collate_fn_tr_val(batch):  # here we called arg 'batch' instead of data
 
     # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
     filtered_batch = [sample for sample in batch if sample is not None]
@@ -281,7 +268,7 @@ def batch_collate_fn(batch):  # here we called arg 'batch' instead of data
     return {'image': batched_images, 'label': batched_labels}
 
 
-def batch_collate_fn_for_test(batch):  # here we called arg 'batch' instead of data
+def batch_collate_fn_test(batch):  # here we called arg 'batch' instead of data
     # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
     filtered_batch = [sample for sample in batch if sample is not None]
 
@@ -296,6 +283,7 @@ def batch_collate_fn_for_test(batch):  # here we called arg 'batch' instead of d
     print(f"batched_images.shape: {batched_images.shape}")
 
     return {'image': batched_images}
+
 
 # function that loads and preapres data for training, validation and testing 
 """
@@ -380,7 +368,6 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
             RandGaussianNoised(keys = ['image'], prob = 0.5),
             ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
-            Convert_To_Binary(),
         ])
 
         val_transforms = Compose([
@@ -389,7 +376,6 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             EnsureTyped(keys=['image', 'label']),
             ScaleIntensityd(keys=['image']),
             ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
-            Convert_To_Binary(),
         ])
 
 
@@ -428,7 +414,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             batch_size = batch_size, 
             shuffle = False, 
             num_workers = num_workers,
-            collate_fn = batch_collate_fn
+            collate_fn = batch_collate_fn_tr_val
         )
 
         val_loader = DataLoader(
@@ -436,7 +422,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             batch_size = batch_size, 
             shuffle = False, 
             num_workers = num_workers,
-            collate_fn = batch_collate_fn
+            collate_fn = batch_collate_fn_tr_val
         )
 
         test_loader = DataLoader(
@@ -444,7 +430,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             batch_size = batch_size, 
             shuffle = False, 
             num_workers = num_workers,
-            collate_fn = batch_collate_fn_for_test
+            collate_fn = batch_collate_fn_test
         )
 
         return train_loader, val_loader, test_loader

@@ -20,7 +20,7 @@ from torch import optim
 import nibabel as nib
 
 
-def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=False, patience=3):
+def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=5, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
@@ -72,8 +72,8 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
             softmax = torch.nn.functional.softmax(outputs, dim=1) # converting predictions to probabilities
             labels_one_hot = one_hot(labels, num_classes=num_classes) # one-hot
             dice_score = dice_metric(y_pred=softmax, y=labels_one_hot) # dice score (metrics)
-            preds_bin = torch.argmax(softmax, dim=1).unsqueeze(1) # converting predictions to binary
-            hausdorff_distance = hausdorff_metric(y_pred=preds_bin, y=labels) # hausdorff distance (metrics)
+            preds_class = torch.argmax(softmax, dim=1).unsqueeze(1) # converting predictions to one of the classes 
+            hausdorff_distance = hausdorff_metric(y_pred=preds_class, y=labels) # hausdorff distance (metrics)
             all_hausdorff_distances.append(hausdorff_distance.item()) 
 
             all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
@@ -125,8 +125,8 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
                         labels_one_hot = one_hot(labels, num_classes=num_classes)
                         dice_score = dice_metric(y_pred=softmax, y=labels_one_hot)
                         all_dice_scores.append(dice_score.item())
-                        preds_bin = torch.argmax(softmax, dim=1).unsqueeze(1)
-                        hausdorff_distance = hausdorff_metric(y_pred=preds_bin, y=labels)
+                        preds_class = torch.argmax(softmax, dim=1).unsqueeze(1)
+                        hausdorff_distance = hausdorff_metric(y_pred=preds_class, y=labels)
                         all_hausdorff_distances.append(hausdorff_distance.item())
 
                         all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
@@ -280,15 +280,15 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # training, valdation phase
-    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=15, use_amp=True, patience=5)
+    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=5, use_amp=True, patience=5)
 
     # saving trained model
     torch.jit.script(model).save('model.zip')
 
     # loading best model for testing 
-    best_model = get_unet_model(num_classes = 117, in_channels = 1)
-    best_model.load_state_dict(torch.load("best_metric_model.pth"))
-    best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    #best_model = get_unet_model(num_classes = 117, in_channels = 1)
+    #best_model.load_state_dict(torch.load("best_metric_model.pth"))
+    #best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     # testing phase
     #test(best_model, test_loader, use_amp=True, save_predictions=True, save_path='test_predictions')

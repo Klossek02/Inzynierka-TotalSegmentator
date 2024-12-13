@@ -20,11 +20,11 @@ from torch import optim
 import nibabel as nib
 
 
-def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=5, use_amp=False, patience=3):
+def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-    num_classes = 117  
+    num_classes = 118
     dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
     hausdorff_metric = HausdorffDistanceMetric(percentile=95, directed=False)
 
@@ -274,19 +274,19 @@ if __name__ == "__main__":
     print(f"Validation dataloader length: {len(val_loader)}")
     print(f"Test dataloader length: {len(test_loader)}")
 
-    model = get_unet_model(num_classes=117, in_channels=1)
+    model = get_unet_model(num_classes=118, in_channels=1)
     criterion = DiceLoss(softmax=True, to_onehot_y=True)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # training, valdation phase
-    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=5, use_amp=True, patience=5)
+    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=True, patience=5)
 
     # saving trained model
     torch.jit.script(model).save('model.zip')
 
     # loading best model for testing 
-    #best_model = get_unet_model(num_classes = 117, in_channels = 1)
+    #best_model = get_unet_model(num_classes = 118, in_channels = 1)
     #best_model.load_state_dict(torch.load("best_metric_model.pth"))
     #best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 

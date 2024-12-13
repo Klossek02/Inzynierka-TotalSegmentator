@@ -2,7 +2,7 @@
 
 import monai
 from monai.networks.nets import UNet
-def get_unet_model(num_classes=117, in_channels=1):
+def get_unet_model(num_classes=118, in_channels=1):
     return UNet(
         spatial_dims=3,                  # spatial dimensions of the input (3D for volumetric data)
         in_channels=in_channels,         # no. of input channels (e.g, 1 or 2 for single-channel images)
@@ -13,4 +13,5 @@ def get_unet_model(num_classes=117, in_channels=1):
         norm=monai.networks.layers.Norm.BATCH, # normalization layer to use (batch normalization)
         dropout=0.2,                     # dropout rate for regularization
     )
+
 

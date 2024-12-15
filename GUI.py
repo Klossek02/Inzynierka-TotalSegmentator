@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 
 from stl import mesh 
-from vedo import load, Plotter, Mesh
+from vedo import load, Plotter
 from matplotlib import cm 
 from matplotlib.colors import to_rgb
 from PyQt5.QtWidgets import *
@@ -28,36 +28,123 @@ from model import get_unet_model
 # as in case of the Dataloader, the mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
 
 main_classes_CT = {
-    "skeleton": [
-        'skull', 'clavicula_left', 'clavicula_right', 'humerus_left', 'humerus_right', 'scapula_left', 'scapula_right', 'sternum',
-        'rib_left_1', 'rib_left_2', 'rib_left_3', 'rib_left_4', 'rib_left_5', 'rib_left_6', 'rib_left_7', 'rib_left_8',
-        'rib_left_9', 'rib_left_10', 'rib_left_11', 'rib_left_12', 'rib_right_1', 'rib_right_2', 'rib_right_3', 'rib_right_4',
-        'rib_right_5', 'rib_right_6', 'rib_right_7', 'rib_right_8', 'rib_right_9', 'rib_right_10', 'rib_right_11', 'rib_right_12',
-        'vertebrae_C1', 'vertebrae_C2', 'vertebrae_C3', 'vertebrae_C4', 'vertebrae_C5', 'vertebrae_C6', 'vertebrae_C7', 'vertebrae_L1',
-        'vertebrae_L2', 'vertebrae_L3', 'vertebrae_L4', 'vertebrae_L5', 'vertebrae_S1', 'vertebrae_T1', 'vertebrae_T2', 'vertebrae_T3',
-        'vertebrae_T4', 'vertebrae_T5', 'vertebrae_T6', 'vertebrae_T7', 'vertebrae_T8', 'vertebrae_T9', 'vertebrae_T10',
-        'vertebrae_T11', 'costal_cartilages', 'vertebrae_T12', 'hip_left', 'hip_right', 'sacrum', 'femur_left', 'femur_right'
-    ],
-    "cardiovascular": [
-        'common_carotid_artery_left', 'common_carotid_artery_right', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right',
-        'subclavian_artery_left', 'subclavian_artery_right', 'brachiocephalic_trunk', 'superior_vena_cava', 'pulmonary_vein',
-        'atrial_appendage_left', 'aorta', 'heart', 'portal_vein_and_splenic_vein', 'inferior_vena_cava', 'iliac_artery_left',
-        'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right'
-    ],
-    "gastrointestinal": [
-        'esophagus', 'stomach', 'duodenum', 'small_bowel', 'colon', 'urinary_bladder'
-    ],
-    "muscles": [
-        'autochthon_left', 'autochthon_right', 'iliopsoas_left', 'iliopsoas_right', 'gluteus_minimus_left',
-        'gluteus_minimus_right', 'gluteus_medius_left', 'gluteus_medius_right', 'gluteus_maximus_left',
-        'gluteus_maximus_right'
-    ],
-    "others": [
-        'brain', 'spinal_cord', 'thyroid_gland', 'trachea', 'lung_upper_lobe_left', 'lung_upper_lobe_right',
-        'lung_middle_lobe_right', 'lung_lower_lobe_left', 'lung_lower_lobe_right', 'adrenal_gland_left',
-        'adrenal_gland_right', 'spleen', 'liver', 'gallbladder', 'kidney_left', 'kidney_right', 'kidney_cyst_left',
-        'kidney_cyst_right', 'pancreas', 'prostate'
-    ]
+        1: "spleen",
+        2: "kidney_right",
+        3: "kidney_left",
+        4: "gallbladder",
+        5: "liver",
+        6: "stomach",
+        7: "pancreas",
+        8: "adrenal_gland_right",
+        9: "adrenal_gland_left",
+        10: "lung_upper_lobe_left",
+        11: "lung_lower_lobe_left",
+        12: "lung_upper_lobe_right",
+        13: "lung_middle_lobe_right",
+        14: "lung_lower_lobe_right",
+        15: "esophagus",
+        16: "trachea",
+        17: "thyroid_gland",
+        18: "small_bowel",
+        19: "duodenum",
+        20: "colon",
+        21: "urinary_bladder",
+        22: "prostate",
+        23: "kidney_cyst_left",
+        24: "kidney_cyst_right",
+        25: "sacrum",
+        26: "vertebrae_S1",
+        27: "vertebrae_L5",
+        28: "vertebrae_L4",
+        29: "vertebrae_L3",
+        30: "vertebrae_L2",
+        31: "vertebrae_L1",
+        32: "vertebrae_T12",
+        33: "vertebrae_T11",
+        34: "vertebrae_T10",
+        35: "vertebrae_T9",
+        36: "vertebrae_T8",
+        37: "vertebrae_T7",
+        38: "vertebrae_T6",
+        39: "vertebrae_T5",
+        40: "vertebrae_T4",
+        41: "vertebrae_T3",
+        42: "vertebrae_T2",
+        43: "vertebrae_T1",
+        44: "vertebrae_C7",
+        45: "vertebrae_C6",
+        46: "vertebrae_C5",
+        47: "vertebrae_C4",
+        48: "vertebrae_C3",
+        49: "vertebrae_C2",
+        50: "vertebrae_C1",
+        51: "heart",
+        52: "aorta",
+        53: "pulmonary_vein",
+        54: "brachiocephalic_trunk",
+        55: "subclavian_artery_right",
+        56: "subclavian_artery_left",
+        57: "common_carotid_artery_right",
+        58: "common_carotid_artery_left",
+        59: "brachiocephalic_vein_left",
+        60: "brachiocephalic_vein_right",
+        61: "atrial_appendage_left",
+        62: "superior_vena_cava",
+        63: "inferior_vena_cava",
+        64: "portal_vein_and_splenic_vein",
+        65: "iliac_artery_left",
+        66: "iliac_artery_right",
+        67: "iliac_vena_left",
+        68: "iliac_vena_right",
+        69: "humerus_left",
+        70: "humerus_right",
+        71: "scapula_left",
+        72: "scapula_right",
+        73: "clavicula_left",
+        74: "clavicula_right",
+        75: "femur_left",
+        76: "femur_right",
+        77: "hip_left",
+        78: "hip_right",
+        79: "spinal_cord",
+        80: "gluteus_maximus_left",
+        81: "gluteus_maximus_right",
+        82: "gluteus_medius_left",
+        83: "gluteus_medius_right",
+        84: "gluteus_minimus_left",
+        85: "gluteus_minimus_right",
+        86: "autochthon_left",
+        87: "autochthon_right",
+        88: "iliopsoas_left",
+        89: "iliopsoas_right",
+        90: "brain",
+        91: "skull",
+        92: "rib_left_1",
+        93: "rib_left_2",
+        94: "rib_left_3",
+        95: "rib_left_4",
+        96: "rib_left_5",
+        97: "rib_left_6",
+        98: "rib_left_7",
+        99: "rib_left_8",
+        100: "rib_left_9",
+        101: "rib_left_10",
+        102: "rib_left_11",
+        103: "rib_left_12",
+        104: "rib_right_1",
+        105: "rib_right_2",
+        106: "rib_right_3",
+        107: "rib_right_4",
+        108: "rib_right_5",
+        109: "rib_right_6",
+        110: "rib_right_7",
+        111: "rib_right_8",
+        112: "rib_right_9",
+        113: "rib_right_10",
+        114: "rib_right_11",
+        115: "rib_right_12",
+        116: "sternum",
+        117: "costal_cartilages"
 }
 
 if not main_classes_CT:
@@ -118,7 +205,7 @@ class MedicalImageViewer(QMainWindow):
                         self.log_message(f'Skipping label {lbl}.')
                         continue
 
-                    # geenrating STL file and load it as a 3D model.
+                    # generating STL file and load it as a 3D model.
                     seg_path = f'segmented_{organ_name}.stl'
                     demo.convert_to_stl(organ_mask, seg_path)
 
@@ -366,16 +453,15 @@ class MedicalImageViewer(QMainWindow):
         self.vtk_container.setMinimumSize(400, 300)
         self.vtk_container.setStyleSheet("background-color: transparent;")
 
-        # Create a grid layout for the container
+        # grid layout for the container.
         vtk_container_layout = QGridLayout()
         vtk_container_layout.setContentsMargins(0, 0, 0, 0)
         vtk_container_layout.setSpacing(0)
         self.vtk_container.setLayout(vtk_container_layout)
 
-        # Add the vtk_widget to the grid layout
         vtk_container_layout.addWidget(self.vtk_widget, 0, 0)
 
-        # Create the zoom in and zoom out buttons
+        # zoom in/zoom out buttons and its style.
         self.zoom_in_button = QPushButton("+")
         self.zoom_in_button.setFixedSize(30, 30)
         self.zoom_in_button.clicked.connect(self.on_zoom_in)
@@ -383,7 +469,6 @@ class MedicalImageViewer(QMainWindow):
         self.zoom_out_button.setFixedSize(30, 30)
         self.zoom_out_button.clicked.connect(self.on_zoom_out)
 
-        # Style the buttons
         button_style = """
             QPushButton {
                 background-color: rgba(135, 206, 250, 180);  /* Semi-transparent */
@@ -399,7 +484,7 @@ class MedicalImageViewer(QMainWindow):
         self.zoom_in_button.setStyleSheet(button_style)
         self.zoom_out_button.setStyleSheet(button_style)
 
-        # Create a layout to hold the buttons
+        # layout holding the buttons.
         buttons_layout = QVBoxLayout()
         buttons_layout.setContentsMargins(5, 5, 5, 5)
         buttons_layout.setSpacing(5)
@@ -408,12 +493,12 @@ class MedicalImageViewer(QMainWindow):
         buttons_layout.addStretch()
         buttons_layout.setAlignment(Qt.AlignTop | Qt.AlignRight)
 
-        # Create a widget to hold the buttons layout
+        # widget holding the buttons layout.
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
         buttons_widget.setStyleSheet("background-color: transparent;")
 
-        # Add the buttons_widget to the grid layout, overlaid on the vtk_widget
+        # adding buttons_widget to the grid layout, overlaid on the vtk_widget.
         vtk_container_layout.addWidget(buttons_widget, 0, 0, Qt.AlignTop | Qt.AlignRight)
 
         inner_layout_3d = QVBoxLayout()
@@ -432,7 +517,7 @@ class MedicalImageViewer(QMainWindow):
 
         main_layout.addWidget(grid_widget, alignment=Qt.AlignCenter)
 
-        # error logs 
+        # error logs
         self.error_log = QPlainTextEdit()
         self.error_log.setReadOnly(True)
         self.error_log.setFixedHeight(150)
@@ -643,10 +728,10 @@ class MedicalImageViewer(QMainWindow):
             seg_out = segmentation.segment_img(model, img_tensor)
             self.log_message(f"Segmentation output shape: {seg_out.shape}")
 
-            # Store the segmentation result
+            # storing segmentation results.
             self.segmentation_result = seg_out
 
-            # Optionally, render the segmentation
+            # we can optionally render the segmentation as well.
             self.render_3d_visualization_from_data(seg_out)
 
             self.log_message("Segmentation completed. You can now save the segmentation from the 'File' menu.")
@@ -664,47 +749,30 @@ class MedicalImageViewer(QMainWindow):
             self.plotter = Plotter(qt_widget=self.vtk_widget)
             self.plotter.background("#F5F5F5")
 
-
-            #unique_lbls = unique_lbls[unique_lbls != 0]
-            #self.log_message(f"Unique labels in segmentation: {unique_lbls}")
+            unique_lbls = np.unique(seg_data)
+            unique_lbls = unique_lbls[unique_lbls != 0]
+            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
 
             volume = []
-            colors_rgb = self.get_distinct_colors(117)
+            colors_rgb = self.get_distinct_colors(len(unique_lbls))
 
-            i = 0
-            for lbl in seg_data:
-                unique_lbls = np.unique(lbl)
-                print(f"unique labels: {unique_lbls}")
-                print(f"lbl size: {lbl.size}, sum: {np.sum(lbl)}")
-                #organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
-                #organ_mask = np.clip(lbl, a_min=0, a_max=1)
-                #organ_mask = np.clip(np.absolute(lbl), a_min=0, a_max=1)
-                organ_mask = lbl
-                organ_mask[organ_mask >= np.mean(lbl)] = 1
-                organ_mask[organ_mask < np.mean(lbl)] = 0
-                # if (np.min(lbl) != 0):
-                #     organ_mask[organ_mask == np.min(lbl)] = 1
-                # organ_mask = organ_mask.astype(np.uint8)
-                #organ_mask[organ_mask ]
-                print(f"organ mask size: {organ_mask.size}, sum: {np.sum(organ_mask)}")
+            for i, lbl in enumerate(unique_lbls):
+                organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
+                organ_mask = (seg_data == lbl).astype(np.uint8)
 
                 if np.sum(organ_mask) == 0:
-                    self.log_message(f'Skipping label {organ_mask}.')
-                    i += 1
+                    self.log_message(f'Skipping label {lbl}.')
                     continue
 
-                seg_path = f'segmented_{i}.stl'
-                if os.path.exists(seg_path):
-                    os.remove(seg_path)
+                seg_path = f'segmented_{organ_name}.stl'
                 demo.convert_to_stl(organ_mask, seg_path)
 
-                #vol = Mesh(inputobj=mesh, c=colors_rgb[i % len(colors_rgb)], )
                 vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
                 volume.append(vol)
-                #self.plotter.show(volume, axes=1)
                 i += 1
 
-
+                if os.path.exists(seg_path):
+                    os.remove(seg_path)
 
             self.plotter.show(volume, axes=1)
             self.log_message("3D visualization has been rendered successfully.")
@@ -721,10 +789,10 @@ class MedicalImageViewer(QMainWindow):
     # function for loading a trained model to 3D organ visualization.
     def load_segmentation_model(self) -> torch.nn.Module:
 
-        model_path = "best_metric_model.pth"
+        model_path = "C:/Users/aleks/OneDrive/Pulpit/inzynierka/best_metric_model.pth"
         try:
             # let us initialize the model with the same parameters used during training.
-            model = get_unet_model(num_classes=117, in_channels=1)
+            model = get_unet_model(num_classes=118, in_channels=1)
             state_dict = torch.load(model_path, map_location=torch.device('cpu')) # loading state_dict.
             model.load_state_dict(state_dict) # loading it into the model.
             model.eval() # setting model to evaluation mode.
@@ -783,15 +851,15 @@ class MedicalImageViewer(QMainWindow):
     def on_close_segmentation(self):
         self.log_message("Close segmentation action has been triggered.")
         try:
-            # Clear segmentation data
+            # clearing segmentation data.
             self.segmented_scans = {}
             self.segmentation_result = None
 
-            # Clear CT scans
+            # clearing CT scans.
             self.ct_scans = None
             self.affine = None
 
-            # Clear image placeholders
+            # clearing image placeholders.
             self.scan_list_sagittal = []
             self.scan_list_coronal = []
             self.scan_list_axial = []
@@ -803,7 +871,7 @@ class MedicalImageViewer(QMainWindow):
             self.scan_bottom_left.clear()
             self.scan_bottom_left.setText("Axial view")
 
-            # Reset sliders
+            # resetting sliders.
             self.slider_sagittal.setValue(0)
             self.slider_sagittal.setMaximum(0)
             self.slider_coronal.setValue(0)
@@ -811,12 +879,12 @@ class MedicalImageViewer(QMainWindow):
             self.slider_axial.setValue(0)
             self.slider_axial.setMaximum(0)
 
-            # Clear 3D visualization
+            # clearning 3D visualization.
             if hasattr(self, 'plotter'):
                 self.plotter.clear()
                 self.vtk_widget.update()
 
-            # Disable segmentation action
+            # we must also disable segmentation action.
             self.segment_action.setEnabled(False)
 
             self.log_message("Segmentation data and CT scans have been cleared. Application reset to initial state.")
@@ -836,7 +904,7 @@ class MedicalImageViewer(QMainWindow):
         self.log_message("Zoom in action has been triggered.")
         try:
             if hasattr(self, 'plotter'):
-                self.plotter.zoom(1.2)  # Zoom in by a factor of 1.2
+                self.plotter.zoom(1.2)  # zoom in by a factor 1.2.
                 self.plotter.render()
                 self.vtk_widget.update()
             else:
@@ -846,12 +914,12 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Zoom In Error", error_message)
 
-    # function for handling 'Zoom in' action from the menu bar
+    # function for handling 'Zoom in' action from the menu bar.
     def on_zoom_out(self):
         self.log_message("Zoom out action has been triggered.")
         try:
             if hasattr(self, 'plotter'):
-                self.plotter.zoom(0.8)  # Zoom out by a factor of 0.8
+                self.plotter.zoom(0.8)  # zoom out by a factor 0.8.
                 self.plotter.render()
                 self.vtk_widget.update()
             else:
@@ -924,4 +992,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     ex = MedicalImageViewer()
-    sys.exit(app.exec_())
+    sys.exit(app.exec_()) 

@@ -13,5 +13,3 @@ def get_unet_model(num_classes=118, in_channels=1):
         norm=monai.networks.layers.Norm.BATCH, # normalization layer to use (batch normalization)
         dropout=0.2,                     # dropout rate for regularization
     )
-
-

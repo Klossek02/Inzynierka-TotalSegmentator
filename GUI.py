@@ -160,6 +160,31 @@ for organ_grp, organ_names in main_classes_CT.items():
         lbl_counter += 1
 
 
+SLICER_COLORS = [
+    "#3182bd", "#6baed6", "#9ecae1", "#c6dbef", "#e6550d", "#fd8d3c", "#fdae6b", "#fdd0a2",
+    "#31a354", "#74c476", "#a1d99b", "#c7e9c0", "#756bb1", "#9e9ac8", "#bcbddc", "#dadaeb",
+    "#636363", "#969696", "#bdbdbd", "#d9d9d9", "#8c6d31", "#bd9e39", "#e7ba52", "#e7cb94",
+    "#843c39", "#ad494a", "#d6616b", "#e7969c", "#7b4173", "#a55194", "#ce6dbd", "#de9ed6",
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+    "#bcbd22", "#17becf", "#393b79", "#5254a3", "#6b6ecf", "#9c9ede", "#637939", "#8ca252",
+    "#b5cf6b", "#cedb9c", "#8c6d31", "#bd9e39", "#e7ba52", "#e7cb94", "#843c39", "#ad494a",
+    "#d6616b", "#e7969c", "#7b4173", "#a55194", "#ce6dbd", "#de9ed6", "#3182bd", "#6baed6",
+    "#9ecae1", "#c6dbef", "#e6550d", "#fd8d3c", "#fdae6b", "#fdd0a2", "#31a354", "#74c476",
+    "#a1d99b", "#c7e9c0", "#756bb1", "#9e9ac8", "#bcbddc", "#dadaeb", "#636363", "#969696",
+    "#bdbdbd", "#d9d9d9", "#8c6d31", "#bd9e39", "#e7ba52", "#e7cb94", "#843c39", "#ad494a",
+    "#d6616b", "#e7969c", "#7b4173", "#a55194", "#ce6dbd", "#de9ed6", "#1f77b4", "#ff7f0e",
+    "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    "#393b79", "#5254a3", "#6b6ecf", "#9c9ede", "#637939", "#8ca252", "#b5cf6b", "#cedb9c",
+    "#8c6d31", "#bd9e39", "#e7ba52", "#e7cb94", "#843c39", "#ad494a", "#d6616b", "#e7969c"
+    ]
+
+class_to_color = {
+    idx: SLICER_COLORS[idx % len(SLICER_COLORS)]
+    for idx in range(1, len(main_classes_CT) + 1)
+}
+
+
+
 class MedicalImageViewer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -167,7 +192,7 @@ class MedicalImageViewer(QMainWindow):
         self.ct_scans = None
         self.affine = None
         self.segmented_scans = {}
-        self.segmentation_result = None  # Stores the full segmentation result
+        self.segmentation_result = None  
         self.init_ui()
 
     def log_message(self, message):
@@ -194,10 +219,9 @@ class MedicalImageViewer(QMainWindow):
 
                 # preparing 3D models for each labelled region.
                 volume = []
-                colors_rgb = self.get_distinct_colors(len(unique_lbls)) # generating unique colors. 
 
 
-                for i, lbl in enumerate(unique_lbls):
+                for lbl in unique_lbls:
                     organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
                     organ_mask = (seg_data == lbl).astype(np.uint8)
 
@@ -209,44 +233,29 @@ class MedicalImageViewer(QMainWindow):
                     seg_path = f'segmented_{organ_name}.stl'
                     demo.convert_to_stl(organ_mask, seg_path)
 
-                    vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
+                    # permanent color for class 
+                    color_hex = class_to_color.get(int(lbl), "#FFFFFF")  # at default white 
+                    rgb_color = to_rgb(color_hex)
+                    vol = load(seg_path).color(rgb_color)
                     volume.append(vol)
-                    i += 1
 
                     # clearning temporary STL files.
                     if os.path.exists(seg_path):
                         os.remove(seg_path)
 
-                # displaying 3D visualization using afornemtioned vtk_widget library.
-                self.plotter = Plotter(qt_widget=self.vtk_widget)
                 self.plotter.show(volume, axes=1)
                 self.log_message("3D visualization has been rendered successfully.")
             else:
-                self.log_message("No segmentation file provided, visualization skipped.") # TODO: naprawić
+                self.log_message("No segmentation file provided, visualization skipped.")
 
-            # plotter.background("white")
             self.plotter.background("#F5F5F5")
-            self.vtk_widget.update() # refersh vtk_widget to see updates.
+            self.vtk_widget.update()
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
             QMessageBox.critical(self, "Visualization error", error_message)
 
 
-    # this function's purpose is to generate N distinct RGB colors.
-    def get_distinct_colors(self, N):
-        colormaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent','Dark2', 
-        'Set1', 'Set2', 'Set3','tab10', 'tab20', 'tab20b', 'tab20c']  # https://matplotlib.org/stable/users/explain/colors/colormaps.html
-        colors = []
-    
-        for i in range(N):
-            cmap_name = colormaps[i % len(colormaps)]  # cycling through available colormaps defined above.
-            cmap = cm.get_cmap(cmap_name)
-            normalized_idx = (i % cmap.N) / cmap.N # normalize index.
-            rgb_color = cmap(normalized_idx)[:3]  # extract RGB values.
-            colors.append(rgb_color)
-    
-        return colors
 
     # UI components, layout, styling visible for the user.
     def init_ui(self):
@@ -360,6 +369,7 @@ class MedicalImageViewer(QMainWindow):
             }
         """
 
+        # views
         self.scan_top_left = QLabel("Sagittal view")
         self.scan_top_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_left.setAlignment(Qt.AlignCenter)
@@ -386,7 +396,7 @@ class MedicalImageViewer(QMainWindow):
         self.vtk_widget.setMinimumSize(400, 300)
         self.vtk_widget.setStyleSheet("""
             QtInteractor {
-                background-color: #FFFFFF;  /* Jasne tło dla VTK widget */
+                background-color: #FFFFFF;  
                 border: 2px solid #A0A0A0;
                 border-radius: 10px;
             }
@@ -471,7 +481,7 @@ class MedicalImageViewer(QMainWindow):
 
         button_style = """
             QPushButton {
-                background-color: rgba(135, 206, 250, 180);  /* Semi-transparent */
+                background-color: rgba(135, 206, 250, 180);  
                 color: #FFFFFF;
                 border-radius: 15px;
                 font-weight: bold;
@@ -695,10 +705,10 @@ class MedicalImageViewer(QMainWindow):
                         self.affine = affine
                         self.log_message("Segmented CT scan has been successfully uploaded.")
 
-                        # Render the segmentation
+                        # rendering the segmentation
                         self.render_3d_visualization_from_data(seg_data)
 
-                        # Disable segmentation action, as "Segment image" option has been already executed.
+                        # disabling segmentation action, as "Segment image" option has been already executed.
                         self.segment_action.setEnabled(False)
                     else:
                         raise ValueError("Selected file is not a valid NIfTI file.")
@@ -741,6 +751,8 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Segmentation error", error_message)
 
+    
+    
     def render_3d_visualization_from_data(self, seg_data):
         try:
             self.vtk_widget.clear()
@@ -749,33 +761,65 @@ class MedicalImageViewer(QMainWindow):
             self.plotter = Plotter(qt_widget=self.vtk_widget)
             self.plotter.background("#F5F5F5")
 
+            # checking if the data are valid 
+            if seg_data is None or seg_data.size == 0:
+                self.log_message("Segmentation data is empty or None.")
+                QMessageBox.warning(self, "Visualization Error", "No valid segmentation data provided.")
+                return
+
+            # getting unique labels 
             unique_lbls = np.unique(seg_data)
-            unique_lbls = unique_lbls[unique_lbls != 0]
+            unique_lbls = unique_lbls[unique_lbls != 0]  # skipping background (label 0)
+            if len(unique_lbls) == 0:
+                self.log_message("No valid labels found in segmentation data.")
+                QMessageBox.warning(self, "Visualization Error", "No valid labels found in segmentation data.")
+                return
+
             self.log_message(f"Unique labels in segmentation: {unique_lbls}")
 
             volume = []
-            colors_rgb = self.get_distinct_colors(len(unique_lbls))
 
-            for i, lbl in enumerate(unique_lbls):
+            for lbl in unique_lbls:
+            # getting organ name based on the label 
                 organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
-                organ_mask = (seg_data == lbl).astype(np.uint8)
 
+            # creating organ mask for a given label 
+                organ_mask = (seg_data == lbl).astype(np.uint8)
                 if np.sum(organ_mask) == 0:
-                    self.log_message(f'Skipping label {lbl}.')
+                    self.log_message(f"Skipping label {lbl}, no data found.")
                     continue
 
+                # generating STL file 
                 seg_path = f'segmented_{organ_name}.stl'
-                demo.convert_to_stl(organ_mask, seg_path)
+                try:
+                    demo.convert_to_stl(organ_mask, seg_path)
+                except Exception as stl_error:
+                    self.log_message(f"Error generating STL for {organ_name}: {str(stl_error)}")
+                    continue
 
-                vol = load(seg_path).color(colors_rgb[i % len(colors_rgb)])
-                volume.append(vol)
-                i += 1
+                # getting color for a given label 
+                color_hex = class_to_color.get(int(lbl), "#FFFFFF")  # Domyślnie biały
+                rgb_color = to_rgb(color_hex)
 
-                if os.path.exists(seg_path):
-                    os.remove(seg_path)
+            # loading STL file as a 3D model
+                try:
+                    vol = load(seg_path).color(rgb_color)
+                    volume.append(vol)
+                except Exception as load_error:
+                    self.log_message(f"Error loading STL for {organ_name}: {str(load_error)}")
+                    continue
+                finally:
+                # removing STL file after its usage 
+                    if os.path.exists(seg_path):
+                        os.remove(seg_path)
 
-            self.plotter.show(volume, axes=1)
-            self.log_message("3D visualization has been rendered successfully.")
+        # displaying 3D model in the plotter
+            if volume:
+                self.plotter.show(volume, axes=1)
+                self.log_message("3D visualization has been rendered successfully.")
+            else:
+                self.log_message("No volumes were generated for visualization.")
+                QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
 
             self.plotter.background("#F5F5F5")
             self.vtk_widget.update()
@@ -789,7 +833,7 @@ class MedicalImageViewer(QMainWindow):
     # function for loading a trained model to 3D organ visualization.
     def load_segmentation_model(self) -> torch.nn.Module:
 
-        model_path = "C:/Users/aleks/OneDrive/Pulpit/inzynierka/best_metric_model.pth"
+        model_path = "best_metric_model1.pth"
         try:
             # let us initialize the model with the same parameters used during training.
             model = get_unet_model(num_classes=118, in_channels=1)

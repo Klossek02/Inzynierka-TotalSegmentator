@@ -11,7 +11,7 @@ def convert_to_stl(nifti, out_path):
         print(f"WARNING: the input data for {out_path} is empty.")
         return
 
-    # using marching cubes algo with lvl 0.5 for binary masks
+    # using marching cubes algo with lvl 0.5 for multiple classes 
     verts, faces, normals, values = measure.marching_cubes(nifti, level=0.5)
 
     # creating mesh

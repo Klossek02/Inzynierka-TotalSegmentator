@@ -1,32 +1,32 @@
 # === Train.py ===
 
-import glob
 import os
+import numpy as np
+import matplotlib.pyplot as plt
+import nibabel as nib
+
+import torch
+from torch import optim
+from torch.utils.data import DataLoader
+from sklearn.metrics import accuracy_score, jaccard_score
+
 
 from monai.losses import DiceLoss
-from monai.metrics import DiceMetric, HausdorffDistanceMetric
-from monai.transforms import Compose, Resize
+from monai.metrics import DiceMetric
 from monai.networks.utils import one_hot
-from sklearn.metrics import accuracy_score, jaccard_score
 
 from dataloader import get_dataloaders, TotalSeg_Dataset_Tr_Val
 from model import get_unet_model
 
-from torch.utils.data import DataLoader
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from torch import optim
-import nibabel as nib
 
+def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=50, use_amp=False, patience=10):
 
-def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=False, patience=3):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-    num_classes = 118
+    scaler = torch.amp.GradScaler(enabled=use_amp)
+    num_classes = 118  # no. of classes + background 
+
     dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
-    hausdorff_metric = HausdorffDistanceMetric(percentile=95, directed=False)
 
     best_val_loss = float('inf')
     best_metric_epoch = -1
@@ -38,29 +38,30 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     val_accuracies = []
     val_ious = []
     val_dices = []
-    val_hausdorffs = []
 
     for epoch in range(num_epochs):
+        print(f"\nEpoch {epoch + 1}/{num_epochs}")
         model.train()
         epoch_loss = 0
         all_preds = []
         all_labels = []
-        all_dice_scores = []
-        all_hausdorff_distances = []
-        i = 0
+        batch_idx = 0
+
+        # training phase
         for batch in train_loader:
             if batch is None:
-                print(f"ERROR: skipping batch {i} - invalid samples.")
-                i += 1
+                batch_idx += 1
                 continue
-            print('batch:', i)
-            i += 1
+            batch_idx += 1
+
             inputs = batch["image"].to(device)
             labels = batch["label"].to(device)
+
             optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast(device_type='cuda', enabled=use_amp):
                 outputs = model(inputs)
+                # Labels: [B,1,D,H,W], class idxs
                 loss = criterion(outputs, labels)
 
             scaler.scale(loss).backward()
@@ -69,105 +70,97 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
 
             epoch_loss += loss.item()
 
-            softmax = torch.nn.functional.softmax(outputs, dim=1) # converting predictions to probabilities
-            labels_one_hot = one_hot(labels, num_classes=num_classes) # one-hot
-            dice_score = dice_metric(y_pred=softmax, y=labels_one_hot) # dice score (metrics)
-            preds_class = torch.argmax(softmax, dim=1).unsqueeze(1) # converting predictions to one of the classes 
-            hausdorff_distance = hausdorff_metric(y_pred=preds_class, y=labels) # hausdorff distance (metrics)
-            all_hausdorff_distances.append(hausdorff_distance.item()) 
-
-            all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
-            all_labels.append(labels.cpu().numpy())
+            # metrics forecast
+            preds = torch.argmax(outputs, dim=1).cpu().numpy().astype(np.int8)
+            all_preds.append(preds)
+            all_labels.append(labels.cpu().numpy().astype(np.int8))
 
         epoch_loss /= len(train_loader)
         train_losses.append(epoch_loss)
 
+        # calculatning training accuracy without the background 
         if all_labels and all_preds:
             all_labels_np = np.concatenate(all_labels).flatten()
             all_preds_np = np.concatenate(all_preds).flatten()
-            train_accuracy = accuracy_score(all_labels_np, all_preds_np)
+            mask = all_labels_np != 0
+            filtered_labels = all_labels_np[mask]
+            filtered_preds = all_preds_np[mask]
+            train_accuracy = accuracy_score(filtered_labels, filtered_preds)
             train_accuracies.append(train_accuracy)
         else:
             train_accuracy = 0
 
-        avg_dice = np.mean(all_dice_scores)
-        avg_hausdorff = np.mean(all_hausdorff_distances)
-
-        print(f'Epoch {epoch + 1}/{num_epochs}, Training Loss: {epoch_loss}, Training Accuracy: {train_accuracy}, Training Dice: {avg_dice}, Training Hausdorff: {avg_hausdorff}')
+        print(f'Epoch {epoch + 1}/{num_epochs}, Training loss: {epoch_loss:.4f}, Training accuracy: {train_accuracy:.4f}')
 
         # validation phase
         model.eval()
         with torch.no_grad():
-            val_loss = 0
-            all_preds = []
-            all_labels = []
-            all_dice_scores = []
-            all_hausdorff_distances = []
-            val_count = 0
-            i = 0
-            for batch in val_loader:
-                if batch is None:
-                    print(f"ERROR: skipping batch {i} - invalid samples.")
-                    i += 1
-                    continue
-                print(f"Validation batch: {i}")
-                i += 1
-                inputs, labels = batch["image"].to(device), batch["label"].to(device)
+          val_loss = 0
+          all_preds = []
+          all_labels = []
 
-                try:
-                    with torch.cuda.amp.autocast(enabled=use_amp):
-                        outputs = model(inputs)
-                        loss = criterion(outputs, labels)
-                        val_loss += loss.item()
+          dice_metric.reset()
 
-                        # metrics as above
-                        softmax = torch.nn.functional.softmax(outputs, dim=1)
-                        labels_one_hot = one_hot(labels, num_classes=num_classes)
-                        dice_score = dice_metric(y_pred=softmax, y=labels_one_hot)
-                        all_dice_scores.append(dice_score.item())
-                        preds_class = torch.argmax(softmax, dim=1).unsqueeze(1)
-                        hausdorff_distance = hausdorff_metric(y_pred=preds_class, y=labels)
-                        all_hausdorff_distances.append(hausdorff_distance.item())
+          for batch in val_loader:
+            if batch is None:
+              continue
 
-                        all_preds.append(torch.argmax(outputs, dim=1).cpu().numpy())
-                        all_labels.append(labels.cpu().numpy())
-                        val_count += 1
-                except Exception as e:
-                    print(f"Error during validation at epoch {epoch + 1}: {e}")
-                    continue
+            inputs = batch["image"].to(device)
+            labels = batch["label"].to(device)
 
-            if val_count > 0:
-                val_loss /= val_count
-                val_losses.append(val_loss)
+            with torch.amp.autocast(device_type='cuda', enabled=use_amp):
+              outputs = model(inputs)
+              loss = criterion(outputs, labels)
+              val_loss += loss.item()
 
-                all_labels_np = np.concatenate(all_labels)
-                all_preds_np = np.concatenate(all_preds)
+              preds = torch.argmax(outputs, dim=1).to(device)  # [B, D, H, W]
+              all_preds.append(preds.cpu().numpy().astype(np.int8))
+              all_labels.append(labels.cpu().numpy().astype(np.int8))
 
-                val_accuracy = accuracy_score(all_labels_np.flatten(), all_preds_np.flatten())
-                val_accuracies.append(val_accuracy)
+              # one-hot of predictions and labels 
+              preds_one_hot = one_hot(preds.unsqueeze(1), num_classes=num_classes)
+              labels_one_hot = one_hot(labels, num_classes=num_classes)
 
-                # IoU calculation
-                val_iou = jaccard_score(all_labels_np.flatten(), all_preds_np.flatten(), average='macro')
-                val_ious.append(val_iou)
+              # update metrics but do not get values yet 
+              dice_metric(y_pred=preds_one_hot, y=labels_one_hot)
 
-                avg_dice = np.mean(all_dice_scores)
-                val_dices.append(avg_dice)
+        if len(val_loader) > 0:
+          val_loss /= len(val_loader)
+          val_losses.append(val_loss)
 
-                avg_hausdorff = np.mean(all_hausdorff_distances)
-                val_hausdorffs.append(avg_hausdorff)
+          # aggregating dice_metric results through all validation batches 
+          dice_score = dice_metric.aggregate()  # now, we have reduced result (scalar)
+          dice_metric.reset()  # cleaning the metric before the next epoch arises
 
-                print(f'Epoch {epoch + 1}/{num_epochs}, Validation Loss: {val_loss}, Validation Accuracy: {val_accuracy}, Validation IoU: {val_iou}, Validation Dice: {avg_dice}, Validation Hausdorff: {avg_hausdorff}')
+          # calculating remaining metrics 
+          all_labels_np = np.concatenate(all_labels)
+          all_preds_np = np.concatenate(all_preds)
+          mask = all_labels_np.flatten() != 0
+          filtered_labels = all_labels_np.flatten()[mask]
+          filtered_preds = all_preds_np.flatten()[mask]
 
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    best_metric_epoch = epoch + 1
-                    epochs_no_improve = 0
-                    torch.save(model.state_dict(), "best_metric_model.pth")
-                    print("Saved new best metric model")
-                else:
-                    epochs_no_improve += 1
-            else:
-                print("No validation data available")
+          val_accuracy = accuracy_score(filtered_labels, filtered_preds)
+          val_accuracies.append(val_accuracy)
+
+          val_iou = jaccard_score(filtered_labels, filtered_preds, average='macro')
+          val_ious.append(val_iou)
+
+          # now, dice_score is scalar/ 1-element tensor 
+          avg_dice = dice_score.item()
+          val_dices.append(avg_dice)
+
+          print(f'Epoch {epoch + 1}/{num_epochs}, Validation loss: {val_loss:.4f}, Validation accuracy: {val_accuracy:.4f}, Validation IoU: {val_iou:.4f}, Validation DSC: {avg_dice:.4f}')
+
+          if val_loss < best_val_loss:
+              best_val_loss = val_loss
+              best_metric_epoch = epoch + 1
+              epochs_no_improve = 0
+              torch.save(model.state_dict(), "best_metric_model.pth")
+              print("Saved new best metric model.")
+          else:
+            epochs_no_improve += 1
+        else:
+            print("No validation data available.")
 
         scheduler.step(val_loss)
 
@@ -176,28 +169,28 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
             print(f"Early stopping at epoch {epoch + 1}")
             break
 
-    print(f"Best validation loss: {best_val_loss} at epoch {best_metric_epoch}")
+    print(f"Best validation loss: {best_val_loss:.4f} at epoch {best_metric_epoch}")
 
-    # plotting training and validation accuracy 
+    # plots 
     plt.figure()
-    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training loss')
-    plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation loss')
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training Loss')
+    plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation Loss')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
-    plt.title('Training and validation loss')
+    plt.title('Training and Validation Loss')
+    plt.savefig('training_validation_loss.png')
     plt.show()
-    plt.savefig('Training_validation_loss.png')
 
     plt.figure()
-    plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Training accuracy')
-    plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Validation accuracy')
+    plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Training Accuracy')
+    plt.plot(range(1, len(val_accuracies) + 1), val_accuracies, label='Validation Accuracy')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
     plt.legend()
-    plt.title('Training and validation accuracy')
+    plt.title('Training and Validation Accuracy')
+    plt.savefig('training_validation_accuracy.png')
     plt.show()
-    plt.savefig('Training_validation_accuracy.png')
 
     plt.figure()
     plt.plot(range(1, len(val_ious) + 1), val_ious, label='Validation IoU', color='red')
@@ -205,90 +198,97 @@ def train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_
     plt.ylabel('IoU')
     plt.legend()
     plt.title('Validation IoU')
-    plt.show()
     plt.savefig('validation_IoU.png')
-
+    plt.show()
 
     plt.figure()
-    plt.plot(range(1, len(val_dices) + 1), val_dices, label='Validation dice', color='blue')
+    plt.plot(range(1, len(val_dices) + 1), val_dices, label='Validation DSC', color='blue')
     plt.xlabel('Epochs')
-    plt.ylabel('Dice coefficient')
+    plt.ylabel('DSC')
     plt.legend()
-    plt.title('Validation dice coefficient')
-    plt.show()
+    plt.title('Validation DSC')
     plt.savefig('validation_dice.png')
-
-    plt.figure()
-    plt.plot(range(1, len(val_hausdorffs) + 1), val_hausdorffs, label='Validation Hausdorff distance', color='green')
-    plt.xlabel('Epochs')
-    plt.ylabel('Hausdorff distance')
-    plt.legend()
-    plt.title('Validation Hausdorff distance')
     plt.show()
-    plt.savefig('validation_hd.png')
 
 
-def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"): 
+
+def test(model, test_loader, device=None, use_amp=False, save_predictions=False, save_path="test_predictions"):
+
+    num_classes = 118
+
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
+    criterion = DiceLoss(softmax=True, to_onehot_y=True)
+    dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
+
+    test_loss = 0
+    all_preds = []
+    all_dice_scores = []
+    test_count = 0
 
     if save_predictions:
         os.makedirs(save_path, exist_ok=True)
-        
+
     with torch.no_grad():
         for i, batch in enumerate(test_loader):
             if batch is None:
-                print(f"ERROR: skipping test batch {i} - invalid samples.")
+                print(f"Skipping test batch {i} - invalid samples.")
                 continue
 
             inputs = batch["image"].to(device)
 
             try:
-                with torch.cuda.amp.autocast(enabled=use_amp):
+
+                with torch.amp.autocast(device_type='cuda', enabled=use_amp):
                     outputs = model(inputs)
 
                     if save_predictions:
                         preds = torch.argmax(outputs, dim=1)
                         for idx in range(inputs.size(0)):
-                            save_nifti(preds[idx].cpu().numpy(), save_path, index=i * test_loader.batch_size + idx)
+                            save_nifti(preds[idx], save_path, index=i * test_loader.batch_size + idx)
+
 
             except Exception as e:
                 print(f"ERROR: Exception occurred during testing - batch {i}: {e}")
                 continue
 
 
+
 def save_nifti(volume, path, index=0):
-    volume = np.array(volume, dtype=np.float32)
+    volume = np.array(volume, dtype=np.int16)
     nifti_image = nib.Nifti1Image(volume, np.eye(4))
-    nib.save(nifti_image, os.path.join(path, f'patient_predicted_{index}.nii.gz'))
-    print(f'patient_predicted_{index} is saved', end='\r')
+    filename = os.path.join(path, f'patient_predicted_{index}.nii.gz')
+    nib.save(nifti_image, filename)
+    print(f'patient_predicted_{index}.nii.gz is saved.')
+
 
 if __name__ == "__main__":
     base_dir = "Totalsegmentator_dataset_v201"
     meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
-    train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv)
 
-    print(f"Training dataloader length: {len(train_loader)}")
-    print(f"Validation dataloader length: {len(val_loader)}")
-    print(f"Test dataloader length: {len(test_loader)}")
+    # data loaders for training, validation, testing phase
+    train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True, batch_size=1, num_workers=2)
 
     model = get_unet_model(num_classes=118, in_channels=1)
+
     criterion = DiceLoss(softmax=True, to_onehot_y=True)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    optimizer = optim.Adam(model.parameters(), lr=5e-5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
 
-    # training, valdation phase
-    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=1, use_amp=True, patience=5)
+    # training 
+    train(model, criterion, optimizer, scheduler, train_loader, val_loader, num_epochs=50, use_amp=True, patience=10)
 
-    # saving trained model
+    # saving the best model
     torch.jit.script(model).save('model.zip')
 
-    # loading best model for testing 
-    #best_model = get_unet_model(num_classes = 118, in_channels = 1)
+    # loading the best model for testing 
+    #best_model = get_unet_model(num_classes=118, in_channels=1)
     #best_model.load_state_dict(torch.load("best_metric_model.pth"))
     #best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    #print("Best model loaded for testing.")
 
-    # testing phase
+    # testing 
     #test(best_model, test_loader, use_amp=True, save_predictions=True, save_path='test_predictions')
+

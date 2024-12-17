@@ -12,7 +12,7 @@ def convert_to_stl(nifti, out_path):
         return
 
     # using marching cubes algo with lvl 0.5 for binary masks
-    verts, faces, normals, values = measure.marching_cubes(nifti)
+    verts, faces, normals, values = measure.marching_cubes(nifti, level=0.5)
 
     # creating mesh
     obj_3d = stl_mesh.Mesh(np.zeros(faces.shape[0], dtype=stl_mesh.Mesh.dtype))
@@ -22,5 +22,4 @@ def convert_to_stl(nifti, out_path):
 
     # saving mesh to file
     obj_3d.save(out_path)
-    print(f"STL file saved at: {out_path}")
-    #return obj_3d
+    print(f"STL file saved at: {out_path}")  

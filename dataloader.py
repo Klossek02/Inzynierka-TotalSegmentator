@@ -2,13 +2,13 @@
 # Below the module's details on how MONAI dataloader works:
 # https://docs.monai.io/en/0.5.2/_modules/monai/data/dataloader.html
 
-import pandas as pd 
+import pandas as pd
 import nibabel as nib
 import numpy as np
-import os 
+import os
 import subprocess
-import glob 
-import torch 
+import glob
+import torch
 from torch.utils.data import Dataset, DataLoader
 from monai.transforms import (
     Compose, EnsureChannelFirstd, EnsureTyped, LoadImaged, ScaleIntensityd,
@@ -17,7 +17,7 @@ from monai.transforms import (
 )
 from monai.data import Dataset, CacheDataset
 
-# we are working on the classification of various body parts, grouped into 117 anatomical structures. 
+# we are working on the classification of various body parts, grouped into 117 anatomical structures.
 # our aim is to simplify things by combining masks for these structures into single binary mask (eg. lung lobes into whole lung)
 # the exact grouping is based on the README here: https://github.com/openmedlab/Awesome-Medical-Dataset/blob/main/resources/TotalSegmentator_v2.md
 
@@ -149,32 +149,32 @@ total = {
 
 class TotalSeg_Dataset_Tr_Val(Dataset):
 
-    def __init__(self, img_paths, lbl_paths, cmb_masks = False, transform = None): # initialization the dataset with image and label paths and any transforms 
+    def __init__(self, img_paths, lbl_paths, cmb_masks = False, transform = None): # initialization the dataset with image and label paths and any transforms
         assert len(img_paths) == len(lbl_paths), 'ERROR: Mismatched length of images and labels' # labels and images must have the same length
         self.img_paths = img_paths
         self.lbl_paths = lbl_paths
         self.cmb_masks = cmb_masks
         self.transform = transform
-        
-    def __len__(self): # returns total number of images 
+
+    def __len__(self): # returns total number of images
         return len(self.img_paths)
 
-    def __getitem__(self, idx): # loading image and label paths for given index 
-        img_path = self.img_paths[idx]  # get img file path for current index 
-        lbl_path = self.lbl_paths[idx]  # -=- for lbl 
+    def __getitem__(self, idx): # loading image and label paths for given index
+        img_path = self.img_paths[idx]  # get img file path for current index
+        lbl_path = self.lbl_paths[idx]  # -=- for lbl
 
         try:
             # since labels have a default path defined as: "Totalsegmentator_dataset_v201\s****\segmentations",
             # we need to ensure that we can access the *.nii.gz files from that directory (s****) as these will be necessary for model training and ct scan visualization,
-            # not the folder 'segmentations' itself. 
-        
-            lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz')) 
+            # not the folder 'segmentations' itself.
 
-            # checking if the label file exists 
+            lbl_files = glob.glob(os.path.join(lbl_path, '*.nii.gz'))
+
+            # checking if the label file exists
             if len(lbl_files) == 0:
                 raise FileNotFoundError(f'ERROR: missing label for {img_path}.')
 
-            if self.cmb_masks: # case when need to combine mask into a single label 
+            if self.cmb_masks: # case when need to combine mask into a single label
                 cmb_lbl_path = self.combine_masks(lbl_path)
                 lbl_files = cmb_lbl_path # making sure that lbl_files contains only combined mask
 
@@ -185,7 +185,7 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
                 print(f"Before transform: image path: {img_path}, label path: {lbl_files}")
                 data = self.transform(data) # applying any transforms
                 print(f"After transform: image shape: {data['image'].shape}, label shape: {data['label'].shape}")
-            
+
             return data
 
         except Exception as e:
@@ -194,58 +194,58 @@ class TotalSeg_Dataset_Tr_Val(Dataset):
 
 
     # this function combines individual labels into a single multiple-class mask
-    def combine_masks(self, lbl_dir): 
+    def combine_masks(self, lbl_dir):
         out_path = os.path.join(lbl_dir, 'combined_mask.nii.gz')  # https://docs.python.org/3/library/os.path.html
 
         if not os.path.exists(out_path):  # check if the combined mask already exists
             mask_files = glob.glob(os.path.join(lbl_dir, '*.nii.gz')) # get all nii.gz files (mask files)
             combined_mask = None
 
-            # creating one multiple-class mask: 
+            # creating one multiple-class mask:
             for class_id, organ_name in total.items():
                 struct_path = os.path.join(lbl_dir, f"{organ_name}.nii.gz")
-                if os.path.exists(struct_path):    
-                    mask = nib.load(struct_path).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data            
+                if os.path.exists(struct_path):
+                    mask = nib.load(struct_path).get_fdata() # https://nipy.org/nibabel/images_and_memory.html - load mask data
                     if combined_mask is None:
                         combined_mask = np.zeros_like(mask) # https://numpy.org/doc/stable/reference/generated/numpy.zeros_like.html - generating empty mask
                     combined_mask[mask > 0] = class_id # any non-zero value in the current mask will be assigned to the class label
-            
+
             if combined_mask is not None:
                 affine = nib.load(mask_files[0]).affine # loading affine matrix: https://medium.com/@junfeng142857/affine-transformation-why-3d-matrix-for-a-2d-transformation-8922b08bce75
                 combined_mask_img = nib.Nifti1Image(combined_mask.astype(np.uint8), affine)
                 nib.save(combined_mask_img, out_path)
 
             else:
-                combined_mask = np.zeros((128,128,128), dtype=np.uint8) # https://numpy.org/doc/2.1/reference/generated/numpy.zeros.html    
+                combined_mask = np.zeros((128,128,128), dtype=np.uint8) # https://numpy.org/doc/2.1/reference/generated/numpy.zeros.html
                 nifti = nib.Nifti1Image(combined_mask, np.eye(4))
                 nib.save(nifti, out_path)
-            
-        return out_path # returning path to combined mask file 
-      
 
-# class for loading test images 
+        return out_path # returning path to combined mask file
+
+
+# class for loading test images
 class TotalSeg_Dataset_Ts(Dataset):
 
-    def __init__(self,img_paths, transform = None): # initialization the dataset with image paths and any transforms 
-        self.img_paths = img_paths 
-        self.transform = transform 
+    def __init__(self,img_paths, transform = None): # initialization the dataset with image paths and any transforms
+        self.img_paths = img_paths
+        self.transform = transform
 
-    def __len__(self): # returns tot. number of images 
+    def __len__(self): # returns tot. number of images
         return len(self.img_paths)
 
-    def __getitem__(self, idx): # loading image paths for given index 
-        img_path = self.img_paths[idx]   # get img file path for current index 
+    def __getitem__(self, idx): # loading image paths for given index
+        img_path = self.img_paths[idx]   # get img file path for current index
         data = {'image': img_path } # organizing data into a dictionary (in case we want to add more data later)
 
-        if self.transform is not None: # if transform is provided 
-            data = self.transform(data) # applying any transform 
+        if self.transform is not None: # if transform is provided
+            data = self.transform(data) # applying any transform
 
         return data
 
 
-# in this step we create a collate function which handles "None" batches. 
-    # this custom function returns either dict ('image': image_tensor of size shape [1, 277, 277, 95], 'label': label_tensor of size shape [117, 277, 277, 95]) or None in case 
-    # all samples are invalid 
+# in this step we create a collate function which handles "None" batches.
+    # this custom function returns either dict ('image': image_tensor of size shape [1, 277, 277, 95], 'label': label_tensor of size shape [117, 277, 277, 95]) or None in case
+    # all samples are invalid
     # https://lukesalamone.github.io/posts/custom-pytorch-collate/
     # https://pytorch.org/docs/stable/_modules/torch/utils/data/_utils/collate.html#default_collate
 def batch_collate_fn_tr_val(batch):  # here we called arg 'batch' instead of data
@@ -253,8 +253,8 @@ def batch_collate_fn_tr_val(batch):  # here we called arg 'batch' instead of dat
     # first, let us filter out invalid samples (samples that are None or have 'image' or 'label' as None)
     filtered_batch = [sample for sample in batch if sample is not None]
 
-    if len(filtered_batch) == 0: # if not valid samples present 
-        return None 
+    if len(filtered_batch) == 0: # if not valid samples present
+        return None
 
     # then, let us group the samples by 'image' and 'label'
     images = [sample['image'] for sample in filtered_batch]
@@ -285,20 +285,20 @@ def batch_collate_fn_test(batch):  # here we called arg 'batch' instead of data
     return {'image': batched_images}
 
 
-# function that loads and preapres data for training, validation and testing 
+# function that loads and preapres data for training, validation and testing
 """
-    base_dir: base directory where img data is stored 
+    base_dir: base directory where img data is stored
     meta_csv: path to csv file containing meta information for train/test/val splits
     cmb_masks: if True, combines individual masks into a single binary mask. If False, otherwise
-    batch_size: no. of samples per batch 
-    num_workers: no. of workers for loading data 
+    batch_size: no. of samples per batch
+    num_workers: no. of workers for loading data
  """
 
-def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, num_workers = 2):
-        # helper function to get paths for imgs and their corresponding lbl directories 
+def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 4, num_workers = 2):
+        # helper function to get paths for imgs and their corresponding lbl directories
         def get_img_lbl_paths(ids):
-            img = [] # list of img paths 
-            lbl = [] # list of lbl paths 
+            img = [] # list of img paths
+            lbl = [] # list of lbl paths
             for img_id in ids:
                 img_path = os.path.join(base_dir, img_id, 'ct.nii.gz')
                 lbl_dir = os.path.join(base_dir, img_id, 'segmentations')
@@ -316,21 +316,21 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             print(f'SUCCESS. Metadata has been loaded from {meta_csv}.')
         except Exception as e:
             print(f'ERROR. Metadata failed to load from {meta_csv}.')
-            return None, None, None 
-        
+            return None, None, None
+
 
         # let us show the first 10 rows to see whether the metadata is loaded correctly
         print('Metadata preview:')
         print(meta_df.head(10))
 
-        # now after confirming, extract train/test/val IDs 
+        # now after confirming, extract train/test/val IDs
         train_ids = meta_df[meta_df['split'] == 'train']['image_id'].tolist()
         val_ids = meta_df[meta_df['split'] == 'val']['image_id'].tolist()
         test_ids = meta_df[meta_df['split'] == 'test']['image_id'].tolist()
 
         print(f'Training: {len(train_ids)} images, Validation: {len(val_ids)} images, Testing: {len(test_ids)} images.')
 
-        # getting img and lbl paths for each split 
+        # getting img and lbl paths for each split
         train_img, train_lbl = get_img_lbl_paths(train_ids)
         val_img, val_lbl = get_img_lbl_paths(val_ids)
         test_img, _ = get_img_lbl_paths(test_ids) # no labels for testing set
@@ -339,7 +339,7 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         print(f'\n LOADED {len(train_img)} training images.')
         for img, lbl in zip(train_img, train_lbl):
             print(f'Training Image: {img} | Label: {lbl}')
-        
+
         print(f'\n LOADED {len(val_img)} validation images.')
         for img, lbl in zip(val_img, val_lbl):
             print(f'Validation Image: {img} | Label: {lbl}')
@@ -365,8 +365,8 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             ScaleIntensityd(keys=['image']),
             RandSpatialCropd(keys =['image', 'label'], roi_size = (128,128,128), random_size = False),
             RandRotate90d(keys=['image', 'label'], prob = 0.5, max_k = 3),
-            RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
-            RandGaussianNoised(keys = ['image'], prob = 0.5),
+            #RandAffined(keys=['image', 'label'], prob = 0.5,  rotate_range=[(-0.1, 0.1)] * 3, scale_range=[(-0.1, 0.1)] * 3, mode=['bilinear', 'nearest']),
+            #RandGaussianNoised(keys = ['image'], prob = 0.5),
             ResizeWithPadOrCropd(keys=['image', 'label'], spatial_size = (128,128,128)),
         ])
 
@@ -388,18 +388,18 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         ])
 
 
-        # creating datasets for each split 
+        # creating datasets for each split
         train_ds = TotalSeg_Dataset_Tr_Val(
-            train_img, 
-            train_lbl, 
-            cmb_masks = combine_masks, 
+            train_img,
+            train_lbl,
+            cmb_masks = combine_masks,
             transform= train_transforms
         )
 
         val_ds = TotalSeg_Dataset_Tr_Val(
-            val_img, 
-            val_lbl, 
-            cmb_masks = combine_masks, 
+            val_img,
+            val_lbl,
+            cmb_masks = combine_masks,
             transform= val_transforms
         )
 
@@ -408,27 +408,27 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
             transform= test_transforms
         )
 
-        # creating dataloaders for each split 
+        # creating dataloaders for each split
         train_loader = DataLoader(
-            train_ds, 
-            batch_size = batch_size, 
-            shuffle = False, 
+            train_ds,
+            batch_size = batch_size,
+            shuffle = True,
             num_workers = num_workers,
             collate_fn = batch_collate_fn_tr_val
         )
 
         val_loader = DataLoader(
-            val_ds, 
-            batch_size = batch_size, 
-            shuffle = False, 
+            val_ds,
+            batch_size = batch_size,
+            shuffle = False,
             num_workers = num_workers,
             collate_fn = batch_collate_fn_tr_val
         )
 
         test_loader = DataLoader(
-            test_ds, 
-            batch_size = batch_size, 
-            shuffle = False, 
+            test_ds,
+            batch_size = batch_size,
+            shuffle = False,
             num_workers = num_workers,
             collate_fn = batch_collate_fn_test
         )
@@ -436,9 +436,10 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 1, nu
         return train_loader, val_loader, test_loader
 
 if  __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201" # here, the relative path used 
+    base_dir = "Totalsegmentator_dataset_v201" # here, the relative path used
     meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True)
 
-# WARNING: since the output is big, a good practice is to type in the terminal: 
+# WARNING: since the output is big, a good practice is to type in the terminal:
 # python dataloader.py > output_dataloader.txt
+

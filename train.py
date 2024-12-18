@@ -265,8 +265,8 @@ def save_nifti(volume, path, index=0):
 
 
 if __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201"
-    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201"  # here, the relative path used
+    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
 
     # data loaders for training, validation, testing phase
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True, batch_size=1, num_workers=2)

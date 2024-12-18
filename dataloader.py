@@ -436,10 +436,9 @@ def get_dataloaders(base_dir, meta_csv, combine_masks = True, batch_size = 4, nu
         return train_loader, val_loader, test_loader
 
 if  __name__ == "__main__":
-    base_dir = "Totalsegmentator_dataset_v201" # here, the relative path used
-    meta_csv = "Totalsegmentator_dataset_v201/meta.csv"
+    base_dir = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201" # here, the relative path used
+    meta_csv = "C:/Users/Dell/Downloads/Totalsegmentator_dataset_v201/meta.csv"
     train_loader, val_loader, test_loader = get_dataloaders(base_dir, meta_csv, combine_masks=True)
 
 # WARNING: since the output is big, a good practice is to type in the terminal:
 # python dataloader.py > output_dataloader.txt
-

@@ -1,30 +1,44 @@
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QCheckBox, QPushButton
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton, QHBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QGuiApplication
 
 
-class ManageViewWindow(QWidget):
-    def __init__(self, parent=None, organs=None):
+class OrganSelectionDialog(QDialog):
+    def __init__(self, organs, parent=None):
         super().__init__(parent)
-        if organs is None or len(organs) == 0:
-            organs = []
-        self.organs = organs
-        self.checkbox_list = {}
+        self.setWindowTitle("Select an Organ")
+        self.setFixedSize(300, 150)  # window's fixed size
+
+        # window in the middle
+        screen_geometry = QGuiApplication.primaryScreen().availableGeometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
+
+        # layout
         layout = QVBoxLayout()
-        self.label = QLabel("Another Window")
+
+        # label
+        self.label = QLabel("Choose an organ:")
         layout.addWidget(self.label)
-        self.init_checkbox_list()
+
+        # dropdown (ComboBox)
+        self.combo_box = QComboBox(self)
+        self.combo_box.addItems(organs)  # full organ names
+        layout.addWidget(self.combo_box)
+
+        # buttons (OK, Cancel)
+        button_layout = QHBoxLayout()
+        self.ok_button = QPushButton("OK")
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.ok_button)
+        button_layout.addWidget(self.cancel_button)
+
+        layout.addLayout(button_layout)
         self.setLayout(layout)
 
-        self.applyButton = QPushButton("Apply")
-        self.layout().addWidget(self.applyButton)
-
-        self.signal = pyqtSignal(list)
-
-    def init_checkbox_list(self):
-        for org in self.organs:
-            self.checkbox_list.update({org: QCheckBox(text=org)})
-            self.layout().addWidget(self.checkbox_list[org])
-
-    def on_press_applyButton(self):
-        self.signal.emit(self.organs)
-        self.close()
+    # function to get (return) the selected organ
+    def get_selected_organ(self):
+        return self.combo_box.currentText()

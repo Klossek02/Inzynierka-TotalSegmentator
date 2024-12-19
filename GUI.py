@@ -7,25 +7,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nibabel as nib
 
-from stl import mesh 
+from stl import mesh
 from vedo import load, Plotter
-from matplotlib import cm 
+from matplotlib import cm
 from matplotlib.colors import to_rgb
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QFont, QPixmap, QImage
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtCore import QUrl
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtGui import QFont, QPixmap, QImage, QDesktopServices
+from PyQt5.QtCore import Qt, QSize, QUrl, QTimer
 from pyvistaqt import QtInteractor
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QTimer
-from manage_view import OrganSelectionDialog
 
 import demo
 import data_import
 import visualization
-import segmentation  
-from model import get_unet_model  
+import segmentation
+from model import get_unet_model
+from manage_view import OrganSelectionDialog  
 
 # wigets and libraries used: https://doc.qt.io/qt-6/qtwidgets-module.html   https://doc.qt.io/qt-6/widget-classes.html
 
@@ -33,134 +30,133 @@ from model import get_unet_model
 # as in case of the Dataloader, the mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
 
 main_classes_CT = {
-        1: "spleen",
-        2: "kidney_right",
-        3: "kidney_left",
-        4: "gallbladder",
-        5: "liver",
-        6: "stomach",
-        7: "pancreas",
-        8: "adrenal_gland_right",
-        9: "adrenal_gland_left",
-        10: "lung_upper_lobe_left",
-        11: "lung_lower_lobe_left",
-        12: "lung_upper_lobe_right",
-        13: "lung_middle_lobe_right",
-        14: "lung_lower_lobe_right",
-        15: "esophagus",
-        16: "trachea",
-        17: "thyroid_gland",
-        18: "small_bowel",
-        19: "duodenum",
-        20: "colon",
-        21: "urinary_bladder",
-        22: "prostate",
-        23: "kidney_cyst_left",
-        24: "kidney_cyst_right",
-        25: "sacrum",
-        26: "vertebrae_S1",
-        27: "vertebrae_L5",
-        28: "vertebrae_L4",
-        29: "vertebrae_L3",
-        30: "vertebrae_L2",
-        31: "vertebrae_L1",
-        32: "vertebrae_T12",
-        33: "vertebrae_T11",
-        34: "vertebrae_T10",
-        35: "vertebrae_T9",
-        36: "vertebrae_T8",
-        37: "vertebrae_T7",
-        38: "vertebrae_T6",
-        39: "vertebrae_T5",
-        40: "vertebrae_T4",
-        41: "vertebrae_T3",
-        42: "vertebrae_T2",
-        43: "vertebrae_T1",
-        44: "vertebrae_C7",
-        45: "vertebrae_C6",
-        46: "vertebrae_C5",
-        47: "vertebrae_C4",
-        48: "vertebrae_C3",
-        49: "vertebrae_C2",
-        50: "vertebrae_C1",
-        51: "heart",
-        52: "aorta",
-        53: "pulmonary_vein",
-        54: "brachiocephalic_trunk",
-        55: "subclavian_artery_right",
-        56: "subclavian_artery_left",
-        57: "common_carotid_artery_right",
-        58: "common_carotid_artery_left",
-        59: "brachiocephalic_vein_left",
-        60: "brachiocephalic_vein_right",
-        61: "atrial_appendage_left",
-        62: "superior_vena_cava",
-        63: "inferior_vena_cava",
-        64: "portal_vein_and_splenic_vein",
-        65: "iliac_artery_left",
-        66: "iliac_artery_right",
-        67: "iliac_vena_left",
-        68: "iliac_vena_right",
-        69: "humerus_left",
-        70: "humerus_right",
-        71: "scapula_left",
-        72: "scapula_right",
-        73: "clavicula_left",
-        74: "clavicula_right",
-        75: "femur_left",
-        76: "femur_right",
-        77: "hip_left",
-        78: "hip_right",
-        79: "spinal_cord",
-        80: "gluteus_maximus_left",
-        81: "gluteus_maximus_right",
-        82: "gluteus_medius_left",
-        83: "gluteus_medius_right",
-        84: "gluteus_minimus_left",
-        85: "gluteus_minimus_right",
-        86: "autochthon_left",
-        87: "autochthon_right",
-        88: "iliopsoas_left",
-        89: "iliopsoas_right",
-        90: "brain",
-        91: "skull",
-        92: "rib_left_1",
-        93: "rib_left_2",
-        94: "rib_left_3",
-        95: "rib_left_4",
-        96: "rib_left_5",
-        97: "rib_left_6",
-        98: "rib_left_7",
-        99: "rib_left_8",
-        100: "rib_left_9",
-        101: "rib_left_10",
-        102: "rib_left_11",
-        103: "rib_left_12",
-        104: "rib_right_1",
-        105: "rib_right_2",
-        106: "rib_right_3",
-        107: "rib_right_4",
-        108: "rib_right_5",
-        109: "rib_right_6",
-        110: "rib_right_7",
-        111: "rib_right_8",
-        112: "rib_right_9",
-        113: "rib_right_10",
-        114: "rib_right_11",
-        115: "rib_right_12",
-        116: "sternum",
-        117: "costal_cartilages"
+    1: "spleen",
+    2: "kidney_right",
+    3: "kidney_left",
+    4: "gallbladder",
+    5: "liver",
+    6: "stomach",
+    7: "pancreas",
+    8: "adrenal_gland_right",
+    9: "adrenal_gland_left",
+    10: "lung_upper_lobe_left",
+    11: "lung_lower_lobe_left",
+    12: "lung_upper_lobe_right",
+    13: "lung_middle_lobe_right",
+    14: "lung_lower_lobe_right",
+    15: "esophagus",
+    16: "trachea",
+    17: "thyroid_gland",
+    18: "small_bowel",
+    19: "duodenum",
+    20: "colon",
+    21: "urinary_bladder",
+    22: "prostate",
+    23: "kidney_cyst_left",
+    24: "kidney_cyst_right",
+    25: "sacrum",
+    26: "vertebrae_S1",
+    27: "vertebrae_L5",
+    28: "vertebrae_L4",
+    29: "vertebrae_L3",
+    30: "vertebrae_L2",
+    31: "vertebrae_L1",
+    32: "vertebrae_T12",
+    33: "vertebrae_T11",
+    34: "vertebrae_T10",
+    35: "vertebrae_T9",
+    36: "vertebrae_T8",
+    37: "vertebrae_T7",
+    38: "vertebrae_T6",
+    39: "vertebrae_T5",
+    40: "vertebrae_T4",
+    41: "vertebrae_T3",
+    42: "vertebrae_T2",
+    43: "vertebrae_T1",
+    44: "vertebrae_C7",
+    45: "vertebrae_C6",
+    46: "vertebrae_C5",
+    47: "vertebrae_C4",
+    48: "vertebrae_C3",
+    49: "vertebrae_C2",
+    50: "vertebrae_C1",
+    51: "heart",
+    52: "aorta",
+    53: "pulmonary_vein",
+    54: "brachiocephalic_trunk",
+    55: "subclavian_artery_right",
+    56: "subclavian_artery_left",
+    57: "common_carotid_artery_right",
+    58: "common_carotid_artery_left",
+    59: "brachiocephalic_vein_left",
+    60: "brachiocephalic_vein_right",
+    61: "atrial_appendage_left",
+    62: "superior_vena_cava",
+    63: "inferior_vena_cava",
+    64: "portal_vein_and_splenic_vein",
+    65: "iliac_artery_left",
+    66: "iliac_artery_right",
+    67: "iliac_vena_left",
+    68: "iliac_vena_right",
+    69: "humerus_left",
+    70: "humerus_right",
+    71: "scapula_left",
+    72: "scapula_right",
+    73: "clavicula_left",
+    74: "clavicula_right",
+    75: "femur_left",
+    76: "femur_right",
+    77: "hip_left",
+    78: "hip_right",
+    79: "spinal_cord",
+    80: "gluteus_maximus_left",
+    81: "gluteus_maximus_right",
+    82: "gluteus_medius_left",
+    83: "gluteus_medius_right",
+    84: "gluteus_minimus_left",
+    85: "gluteus_minimus_right",
+    86: "autochthon_left",
+    87: "autochthon_right",
+    88: "iliopsoas_left",
+    89: "iliopsoas_right",
+    90: "brain",
+    91: "skull",
+    92: "rib_left_1",
+    93: "rib_left_2",
+    94: "rib_left_3",
+    95: "rib_left_4",
+    96: "rib_left_5",
+    97: "rib_left_6",
+    98: "rib_left_7",
+    99: "rib_left_8",
+    100: "rib_left_9",
+    101: "rib_left_10",
+    102: "rib_left_11",
+    103: "rib_left_12",
+    104: "rib_right_1",
+    105: "rib_right_2",
+    106: "rib_right_3",
+    107: "rib_right_4",
+    108: "rib_right_5",
+    109: "rib_right_6",
+    110: "rib_right_7",
+    111: "rib_right_8",
+    112: "rib_right_9",
+    113: "rib_right_10",
+    114: "rib_right_11",
+    115: "rib_right_12",
+    116: "sternum",
+    117: "costal_cartilages"
 }
 
 if not main_classes_CT:
     raise ValueError("ERROR: main_classes_CT dictionary is empty. No labels have been created.")
 
 # in this step, we create a mapping of numeric labels to organ names, based on their grouping in main_classes_CT.
-lbl_to_organ = {}
-for lbl, organ_name in main_classes_CT.items():
-    lbl_to_organ[lbl] = organ_name
+lbl_to_organ = main_classes_CT.copy()
+organ_to_lbl = {v: k for k, v in main_classes_CT.items()}
 
-
+# colors for 117 classes
 SLICER_COLORS = [
     "#3182bd", "#6baed6", "#9ecae1", "#c6dbef", "#e6550d", "#fd8d3c", "#fdae6b", "#fdd0a2",
     "#31a354", "#74c476", "#a1d99b", "#c7e9c0", "#756bb1", "#9e9ac8", "#bcbddc", "#dadaeb",
@@ -177,13 +173,12 @@ SLICER_COLORS = [
     "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
     "#393b79", "#5254a3", "#6b6ecf", "#9c9ede", "#637939", "#8ca252", "#b5cf6b", "#cedb9c",
     "#8c6d31", "#bd9e39", "#e7ba52", "#e7cb94", "#843c39", "#ad494a", "#d6616b", "#e7969c"
-    ]
+]
 
 class_to_color = {
     idx: SLICER_COLORS[idx % len(SLICER_COLORS)]
     for idx in range(1, len(main_classes_CT) + 1)
 }
-
 
 class PDFViewer(QMainWindow):
     def __init__(self, pdf_url):
@@ -191,16 +186,15 @@ class PDFViewer(QMainWindow):
         self.setWindowTitle("SegMed - Technical documentation")
         self.setGeometry(300, 100, 800, 600)
 
-        # QWebEngineView component to displaying PDFs
+        # QWebEngineView component to display PDFs
         self.browser = QWebEngineView()
         self.browser.setUrl(QUrl(pdf_url))  # URL to PDF file 
         self.setCentralWidget(self.browser)
 
         # status bar
-        self.statusBar().showMessage("Loading technical dokumentation in PDF format ...")
+        self.statusBar().showMessage("Loading technical documentation in PDF format ...")
         self.show()
 
-    
 class HelpWindow(QMainWindow):
     def __init__(self, url):
         super().__init__()
@@ -212,7 +206,6 @@ class HelpWindow(QMainWindow):
         self.setCentralWidget(self.browser)
 
         self.statusBar().showMessage("Loading documentation...")
-
         self.show()
 
 class MedicalImageViewer(QMainWindow):
@@ -223,9 +216,9 @@ class MedicalImageViewer(QMainWindow):
         self.affine = None
         self.segmented_scans = {}
         self.segmentation_result = None  
-        self.init_ui()
         self.loaded_volumes = {}
         self.current_segmented_labels = []
+        self.init_ui()
 
     def log_message(self, message):
         self.error_log.appendPlainText(message)
@@ -234,32 +227,30 @@ class MedicalImageViewer(QMainWindow):
     # we'll do this with the use of vtk widget: https://kitware.github.io/vtk-js/docs/concepts_widgets.html
     def render_3d_visualization(self, seg_file=None):
         try:
-            self.vtk_widget.clear() # at first, we clear the wiget to prepare for a new rendering. 
-            self.log_message("Clearning time. Rendering a 3D visualization...")
+            self.vtk_widget.clear()  # at first, we clear the wiget to prepare for a new rendering
+            self.log_message("Clearing previous visualization. Rendering a new 3D visualization...")
 
             self.plotter = Plotter(qt_widget=self.vtk_widget)
             self.plotter.background("#F5F5F5")
 
             if seg_file:
-                seg_data = nib.load(seg_file).get_fdata() # then, we load and process segmentation data
-                self.log_message(f"Segmentation data has been loaded from {seg_file}")
+                seg_data = nib.load(seg_file).get_fdata()  # then, we load and process segmentation data
+                self.log_message(f"Segmentation data loaded from {seg_file}")
 
-                # extracting all unique labels, except for the background (0)
+                 # extracting all unique labels, except for the background (0)
                 unique_lbls = np.unique(seg_data)
-                unique_lbls = unique_lbls[unique_lbls != 0]  
-                
+                unique_lbls = unique_lbls[unique_lbls != 0]
+                self.log_message(f"Unique labels in segmentation: {unique_lbls}")
 
                 # preparing 3D models for each labelled region
                 volume = []
 
-
                 for lbl in unique_lbls:
                     organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
-                    self.log_message(f"Label {lbl} corresponds to organ: {organ_name}")
                     organ_mask = (seg_data == lbl).astype(np.uint8)
 
                     if np.sum(organ_mask) == 0: # skipping empty mask
-                        self.log_message(f'Skipping label {lbl}.')
+                        self.log_message(f"Skipping label {lbl} ({organ_name}) as it has no data.")
                         continue
 
                     # generating STL file and load it as a 3D model
@@ -267,7 +258,7 @@ class MedicalImageViewer(QMainWindow):
                     demo.convert_to_stl(organ_mask, seg_path)
 
                     # permanent color for class 
-                    color_hex = class_to_color.get(int(lbl), "#FFFFFF")  # at default white 
+                    color_hex = class_to_color.get(int(lbl), "#FFFFFF")
                     rgb_color = to_rgb(color_hex)
                     vol = load(seg_path).color(rgb_color)
                     volume.append(vol)
@@ -276,18 +267,86 @@ class MedicalImageViewer(QMainWindow):
                     if os.path.exists(seg_path):
                         os.remove(seg_path)
 
-                self.plotter.show(volume, axes=1)
-                self.log_message("3D visualization has been rendered successfully.")
+                if volume:
+                    self.plotter.show(volume, axes=1)
+                    self.log_message("3D visualization rendered successfully.")
+                else:
+                    self.log_message("No volumes generated for visualization.")
+                    QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
+
             else:
-                self.log_message("No segmentation file provided, visualization skipped.")
+                self.log_message("No segmentation file provided. Visualization skipped.")
 
             self.plotter.background("#F5F5F5")
             self.vtk_widget.update()
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization error", error_message)
+            QMessageBox.critical(self, "Visualization Error", error_message)
 
+
+    # function for rendering 3D visualization from data provided
+    def render_3d_visualization_from_data(self, seg_data):
+        try:
+            self.vtk_widget.clear()
+            self.log_message("Rendering 3D visualization from segmentation data...")
+
+            self.plotter = Plotter(qt_widget=self.vtk_widget)
+            self.plotter.background("#F5F5F5")
+            self.loaded_volumes.clear()
+
+            if seg_data is None or seg_data.size == 0:
+                self.log_message("Segmentation data is empty or None.")
+                QMessageBox.warning(self, "Visualization Error", "No valid segmentation data provided.")
+                return
+
+            # extractung unique labels excluding background
+            unique_lbls = np.unique(seg_data)
+            unique_lbls = unique_lbls[unique_lbls != 0] # excluding the background (label 0)
+            if len(unique_lbls) == 0:
+                self.log_message("No valid labels found in segmentation data.")
+                QMessageBox.warning(self, "Visualization Error", "No valid labels found in segmentation data.")
+                return
+
+            # storing for volume calculation
+            self.current_segmented_labels = unique_lbls
+
+            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
+
+            for lbl in unique_lbls:
+                organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
+                organ_mask = (seg_data == lbl).astype(np.uint8)
+                if np.sum(organ_mask) == 0:
+                    self.log_message(f"Skipping label {lbl} ({organ_name}), no data found.")
+                    continue
+
+                seg_path = f'segmented_{organ_name}.stl'
+                demo.convert_to_stl(organ_mask, seg_path)
+
+                # assigning color
+                color_hex = class_to_color.get(int(lbl), "#FFFFFF")
+                rgb_color = to_rgb(color_hex)
+
+                vol = load(seg_path).color(rgb_color)
+                self.loaded_volumes[organ_name] = vol
+
+                if os.path.exists(seg_path):
+                    os.remove(seg_path)
+
+            if self.loaded_volumes:
+                self.plotter.show(list(self.loaded_volumes.values()), axes=1)
+                self.log_message("3D visualization rendered successfully.")
+            else:
+                self.log_message("No volumes were generated for visualization.")
+                QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
+
+            self.plotter.background("#F5F5F5")
+            self.vtk_widget.update()
+
+        except Exception as e:
+            error_message = f"Error rendering 3D visualization: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Visualization Error", error_message)
 
 
     # UI components, layout, styling visible for the user
@@ -296,21 +355,21 @@ class MedicalImageViewer(QMainWindow):
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
         QToolTip.setFont(QFont('SansSerif', 10))
 
-        # screen dimensions
+        # Screen dimensions
         screen = QApplication.desktop().screenGeometry()
         screen_width = screen.width()
         screen_height = screen.height()
 
-        # applying various styles to enhance UI appearance
+        # Apply styles
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #FFFFFF;  
+                background-color: #FFFFFF;
             }
             QLabel {
                 border: 2px solid #A0A0A0;
                 border-radius: 10px;
-                background-color: #F5F5F5;  
-                color: #333333;             
+                background-color: #F5F5F5;
+                color: #333333;
                 font-family: 'Arial';
                 font-size: 14px;
                 font-weight: bold;
@@ -333,15 +392,15 @@ class MedicalImageViewer(QMainWindow):
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #87CEFA, stop:1 #4682B4);
             }
             QPlainTextEdit {
-                background-color: #FAFAFA;  
-                color: #333333;             
+                background-color: #FAFAFA;
+                color: #333333;
                 font-family: Consolas, "Courier New", monospace;
                 font-size: 12px;
                 border: 1px solid #B0B0B0;
                 border-radius: 5px;
             }
             QPushButton {
-                background-color: #87CEFA;   
+                background-color: #87CEFA;
                 color: #FFFFFF;
                 border-radius: 10px;
                 padding: 10px 20px;
@@ -350,10 +409,10 @@ class MedicalImageViewer(QMainWindow):
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #4682B4;   
+                background-color: #4682B4;
             }
             QMenuBar {
-                background-color: #F5F5F5;  
+                background-color: #F5F5F5;
                 color: #333333;
             }
             QMenuBar::item {
@@ -376,11 +435,11 @@ class MedicalImageViewer(QMainWindow):
 
         self.setup_menu_bar()
 
-        # main layout 
+        # main layout
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignCenter)
 
-        # grid layout - for image placeholders and sliders
+        # grid layout for image placeholders and sliders
         grid_layout = QGridLayout()
         grid_layout.setAlignment(Qt.AlignCenter)
         grid_layout.setSpacing(20)  
@@ -394,7 +453,7 @@ class MedicalImageViewer(QMainWindow):
             QLabel {
                 border: 2px solid #A0A0A0;
                 border-radius: 10px;
-                background-color: #F5F5F5;  
+                background-color: #F5F5F5;
                 color: #333333;
                 font-family: 'Arial';
                 font-size: 14px;
@@ -429,7 +488,7 @@ class MedicalImageViewer(QMainWindow):
         self.vtk_widget.setMinimumSize(400, 300)
         self.vtk_widget.setStyleSheet("""
             QtInteractor {
-                background-color: #FFFFFF;  
+                background-color: #FFFFFF;
                 border: 2px solid #A0A0A0;
                 border-radius: 10px;
             }
@@ -492,11 +551,12 @@ class MedicalImageViewer(QMainWindow):
         inner_layout_axial.addWidget(self.slider_axial)
         inner_layout_axial.setAlignment(Qt.AlignCenter)
 
+        # VTK container
         self.vtk_container = QWidget()
         self.vtk_container.setMinimumSize(400, 300)
         self.vtk_container.setStyleSheet("background-color: transparent;")
 
-        # grid layout for the container
+        # grid layout for the VTK container
         vtk_container_layout = QGridLayout()
         vtk_container_layout.setContentsMargins(0, 0, 0, 0)
         vtk_container_layout.setSpacing(0)
@@ -504,7 +564,7 @@ class MedicalImageViewer(QMainWindow):
 
         vtk_container_layout.addWidget(self.vtk_widget, 0, 0)
 
-        # zoom in/zoom out buttons and its style
+        # zoom in/zoom out buttons and their style
         self.zoom_in_button = QPushButton("+")
         self.zoom_in_button.setFixedSize(30, 30)
         self.zoom_in_button.clicked.connect(self.on_zoom_in)
@@ -523,7 +583,7 @@ class MedicalImageViewer(QMainWindow):
             QPushButton:hover {
                 background-color: rgba(70, 130, 180, 180);
             }
-            """
+        """
         self.zoom_in_button.setStyleSheet(button_style)
         self.zoom_out_button.setStyleSheet(button_style)
 
@@ -544,15 +604,16 @@ class MedicalImageViewer(QMainWindow):
         # adding buttons_widget to the grid layout, overlaid on the vtk_widget
         vtk_container_layout.addWidget(buttons_widget, 0, 0, Qt.AlignTop | Qt.AlignRight)
 
+        # inner layout for 3D view
         inner_layout_3d = QVBoxLayout()
         inner_layout_3d.addWidget(self.vtk_widget)
         inner_layout_3d.setAlignment(Qt.AlignCenter)
 
-        # inner layouts to grid layout with improved spacing
+        # adding inner layouts to grid layout with improved spacing
         grid_layout.addLayout(inner_layout_sagittal, 0, 0)
         grid_layout.addLayout(inner_layout_coronal, 0, 1)
         grid_layout.addLayout(inner_layout_axial, 1, 0)
-        grid_layout.addLayout(inner_layout_3d, 1, 1)
+        grid_layout.addWidget(self.vtk_container, 1, 1)
 
         grid_widget = QWidget()
         grid_widget.setLayout(grid_layout)
@@ -577,26 +638,9 @@ class MedicalImageViewer(QMainWindow):
         """)
         self.error_log.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # central widget
         main_layout.addWidget(self.error_log)
-        central_widget = QWidget()
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
 
-        try:
-            self.log_message("UI has been initialized successfully.")
-        except Exception as e:
-            error_message = f"Error initializing UI: {str(e)}"
-            self.log_message(error_message)
-
-        self.render_3d_visualization()
-
-        self.resize(900, 800)  # initial size comprising all widgets
-        self.move((screen_width - self.width()) // 2, (screen_height - self.height()) // 2)
-        self.show()
-
-
-        # setting up the progress bar
+        # progress bar
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
@@ -616,8 +660,24 @@ class MedicalImageViewer(QMainWindow):
         """)
         main_layout.addWidget(self.progress_bar)
 
+        # central widget
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
 
-    # setting up the menu bar with File, Edit, View and Help menu actions
+        try:
+            self.log_message("UI has been initialized successfully.")
+        except Exception as e:
+            error_message = f"Error initializing UI: {str(e)}"
+            self.log_message(error_message)
+
+        self.render_3d_visualization()
+
+        self.resize(900, 800)  # initial size comprising all widgets
+        self.move((screen_width - self.width()) // 2, (screen_height - self.height()) // 2)
+        self.show()
+
+    # setting up the menu bar with File, Edit, View, Help, and About menu actions
     def setup_menu_bar(self):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
@@ -626,6 +686,7 @@ class MedicalImageViewer(QMainWindow):
         help_menu = menu_bar.addMenu('Help')
         about_menu = menu_bar.addMenu('About')
 
+        # file menu actions
         upload_action = QAction('Upload data', self)
         upload_action.setShortcut('Ctrl+U')
         upload_action.triggered.connect(self.on_upload_data)
@@ -641,6 +702,7 @@ class MedicalImageViewer(QMainWindow):
         close_action.triggered.connect(self.on_close_segmentation)
         file_menu.addAction(close_action)
 
+        # edit menu actions
         segment_action = QAction('Segment a CT scan', self)
         segment_action.setShortcut('Ctrl+G')
         segment_action.triggered.connect(self.on_segment_image)
@@ -648,6 +710,7 @@ class MedicalImageViewer(QMainWindow):
         edit_menu.addAction(segment_action)
         self.segment_action = segment_action  
 
+        # view menu actions
         manage_view_action = QAction('Manage view', self)
         manage_view_action.setShortcut('Ctrl+M')
         manage_view_action.triggered.connect(self.on_manage_view)
@@ -668,6 +731,7 @@ class MedicalImageViewer(QMainWindow):
         zoom_out_action.triggered.connect(self.on_zoom_out)
         view_menu.addAction(zoom_out_action)
 
+        # help menu actions
         help_action = QAction('Get help in using SegMed', self)
         help_action.setShortcut('Ctrl+H')
         help_action.triggered.connect(self.on_help)
@@ -678,16 +742,16 @@ class MedicalImageViewer(QMainWindow):
         report_problem_action.triggered.connect(self.on_report_problem)  
         help_menu.addAction(report_problem_action)
 
-        contribute_action = QAction('Contribute in developing SegMed', self)
+        contribute_action = QAction('Contribute to SegMed Development', self)
         contribute_action.setShortcut('Ctrl+T')
         contribute_action.triggered.connect(self.on_contribute)
         help_menu.addAction(contribute_action)
 
+        # about menu actions
         about_action = QAction('About SegMed', self)
         about_action.setShortcut('Ctrl+A')
         about_action.triggered.connect(self.on_about)
         about_menu.addAction(about_action)
-
 
     # function to enable uploading the CT scans directly to the application
     def on_upload_data(self):
@@ -699,7 +763,7 @@ class MedicalImageViewer(QMainWindow):
 
         choice, ok = QInputDialog.getItem(
             self, 
-            "Select Upload Option", 
+            "Select upload option", 
             "Choose an option:", 
             options, 
             0, 
@@ -716,12 +780,13 @@ class MedicalImageViewer(QMainWindow):
                 self.on_upload_segmented_ct_scan()
 
 
+    # function to enable uploading the CT scans directly to the application
     def on_upload_ct_scan(self):
         self.log_message("Upload CT scan action has been triggered.")
         try:
             file_dialog = QFileDialog(self)
             file_dialog.setWindowTitle("Select a CT scan file to upload:")
-            file_dialog.setNameFilter("NIfTI Files (*.nii *.nii.gz)")
+            file_dialog.setNameFilter("NIfTI files (*.nii *.nii.gz)")
             file_dialog.setFileMode(QFileDialog.ExistingFile)
             if file_dialog.exec_():
                 chosen_file = file_dialog.selectedFiles()
@@ -735,7 +800,7 @@ class MedicalImageViewer(QMainWindow):
                         self.affine = affine
                         self.log_message("CT scan has been validated and successfully uploaded.")
                         
-                        # converting image slices (in all dimensions) for visualization
+                        #  converting image slices (in all dimensions) for visualization
                         self.scan_list_sagittal, self.scan_list_coronal, self.scan_list_axial, self.affine = visualization.convert_img_slices(
                             file_path, target_size=(400, 300, 128), logger=self.log_message)
                         
@@ -755,7 +820,7 @@ class MedicalImageViewer(QMainWindow):
         try:
             file_dialog = QFileDialog(self)
             file_dialog.setWindowTitle("Select a segmented CT scan file to upload:")
-            file_dialog.setNameFilter("NIfTI Files (*.nii *.nii.gz)")
+            file_dialog.setNameFilter("NIfTI files (*.nii *.nii.gz)")
             file_dialog.setFileMode(QFileDialog.ExistingFile)
             if file_dialog.exec_():
                 chosen_file = file_dialog.selectedFiles()
@@ -769,10 +834,10 @@ class MedicalImageViewer(QMainWindow):
                         self.affine = affine
                         self.log_message("Segmented CT scan has been successfully uploaded.")
 
-                        # rendering the segmentation
+                        # Rendering segmentation
                         self.render_3d_visualization_from_data(seg_data)
 
-                        # disabling segmentation action, as "Segment image" option has been already executed
+                        # if it's already performed, disable segmentation (action)
                         self.segment_action.setEnabled(False)
                     else:
                         raise ValueError("Selected file is not a valid NIfTI file.")
@@ -782,18 +847,20 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Upload error", error_message)
 
+
     def on_segment_image(self):
         self.log_message("Segment image action has been triggered.")
         try:
             if self.ct_scans is None:
                 self.log_message("No CT scans have been loaded for segmentation.")
-                QMessageBox.warning(self, "Segmentation error", "Please upload your CT scan before performing segmentation.")
+                QMessageBox.warning(self, "Segmentation error",
+                                    "Please upload your CT scan before performing segmentation.")
                 return
         
             self.progress_bar.setValue(0)
             self.log_message("Starting segmentation...")
 
-            # timer simulation
+            # timer simulation for progress bar
             def simulate_progress():
                 value = self.progress_bar.value()
                 if value < 100:
@@ -802,16 +869,14 @@ class MedicalImageViewer(QMainWindow):
                 else:
                     timer.stop()
                     self.log_message("Segmentation completed.")
-                    QMessageBox.information(self, "Segmentation complete", "Segmentation has been successfully completed.")
-
-                    self.progress_bar.setValue(0) # reset value to zero
+                    QMessageBox.information(self, "Segmentation Complete", "Segmentation has been successfully completed.")
+                    self.progress_bar.setValue(0)  # resetting value to 0
 
             timer = QTimer(self)
             timer.timeout.connect(simulate_progress)
             timer.start(100)  # each 100 ms progress update
-            
 
-            # for debugging purposes - to check whether the tensor shape is correct
+            # preprocessing CT image for segmentation
             self.log_message("Preprocessing the CT image for segmentation...")
             img_tensor = segmentation.preprocess_img(self.ct_scans, target_size=(128, 128, 128))
             self.log_message(f"Preprocessed image tensor shape: {img_tensor.shape}")  
@@ -823,55 +888,75 @@ class MedicalImageViewer(QMainWindow):
             seg_out = segmentation.segment_img(model, img_tensor)
             self.log_message(f"Segmentation output shape: {seg_out.shape}")
 
-            # storing segmentation results
             self.segmentation_result = seg_out
 
-            # we can optionally render the segmentation as well
             self.render_3d_visualization_from_data(seg_out)
 
             self.log_message("Segmentation completed. You can now save the segmentation from the 'File' menu.")
 
         except Exception as e:
-            error_message = f"ERROR: error while performing segmentation: {str(e)}."
+            error_message = f"ERROR: Error while performing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Segmentation error", error_message)
+            QMessageBox.critical(self, "Segmentation Error", error_message)
 
-    
-    
+
+    # function for rendering 3D visualization from segmentation data
     def render_3d_visualization_from_data(self, seg_data):
         try:
             self.vtk_widget.clear()
-            self.log_message("Rendering full segmentation in 3D...")
+            self.log_message("Rendering 3D visualization from segmentation data...")
 
             self.plotter = Plotter(qt_widget=self.vtk_widget)
             self.plotter.background("#F5F5F5")
             self.loaded_volumes.clear()
 
-            unique_labels = np.unique(seg_data)
-            unique_labels = unique_labels[unique_labels != 0]  # excluding the background (label 0)
-            self.log_message(f"Unique labels in segmentation: {unique_labels}")
+            if seg_data is None or seg_data.size == 0:
+                self.log_message("Segmentation data is empty or None.")
+                QMessageBox.warning(self, "Visualization Error", "No valid segmentation data provided.")
+                return
 
-            for lbl in unique_labels:
+            # extracting unique lbls excluding background
+            unique_lbls = np.unique(seg_data)
+            unique_lbls = unique_lbls[unique_lbls != 0]
+            if len(unique_lbls) == 0:
+                self.log_message("No valid labels found in segmentation data.")
+                QMessageBox.warning(self, "Visualization Error", "No valid labels found in segmentation data.")
+                return
+
+            # storing for volume calculation
+            self.current_segmented_labels = unique_lbls
+
+            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
+
+            for lbl in unique_lbls:
                 organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
                 organ_mask = (seg_data == lbl).astype(np.uint8)
                 if np.sum(organ_mask) == 0:
+                    self.log_message(f"Skipping label {lbl} ({organ_name}), no data found.")
                     continue
 
                 seg_path = f'segmented_{organ_name}.stl'
                 demo.convert_to_stl(organ_mask, seg_path)
 
-                # loading 3D object and save to dict
+                # assigning color
                 color_hex = class_to_color.get(int(lbl), "#FFFFFF")
                 rgb_color = to_rgb(color_hex)
-                volume = load(seg_path).color(rgb_color)
-                self.loaded_volumes[organ_name] = volume
+
+                vol = load(seg_path).color(rgb_color)
+                self.loaded_volumes[organ_name] = vol
 
                 if os.path.exists(seg_path):
                     os.remove(seg_path)
 
-            self.plotter.show(list(self.loaded_volumes.values()), axes=1)
+            if self.loaded_volumes:
+                self.plotter.show(list(self.loaded_volumes.values()), axes=1)
+                self.log_message("3D visualization rendered successfully.")
+            else:
+                self.log_message("No volumes were generated for visualization.")
+                QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
+
+            self.plotter.background("#F5F5F5")
             self.vtk_widget.update()
-            self.log_message("3D visualization has been rendered successfully.")
 
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
@@ -881,27 +966,24 @@ class MedicalImageViewer(QMainWindow):
 
     # function for loading a trained model to 3D organ visualization
     def load_segmentation_model(self) -> torch.nn.Module:
-
-        model_path = "best_metric_model2.pth"
+        model_path = "best_metric_model2.pth"  # Ensure the correct model path
         try:
-            # let us initialize the model with the same parameters used during training
+            # initializing model with the same parameters used during training
             model = get_unet_model(num_classes=118, in_channels=1)
-            state_dict = torch.load(model_path, map_location=torch.device('cpu')) # loading state_dict
-            model.load_state_dict(state_dict) # loading it into the model
-            model.eval() # setting model to evaluation mode
+            state_dict = torch.load(model_path, map_location=torch.device('cpu'))  # load state_dict
+            model.load_state_dict(state_dict)  # load into the model
+            model.eval()  # set model to evaluation mode
             
             self.log_message(f"Model has been loaded successfully from {model_path}.")
             return model
         except FileNotFoundError:
             error_message = f"ERROR: {model_path} not found."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Model loading error", error_message)
+            QMessageBox.critical(self, "Model Loading Error", error_message)
             raise
 
-
-    # function for updating image placeholders (3 of them) with the first silce from each view
+    # function for updating image placeholders (3 of them) with the first slice from each view
     def update_image_placeholders(self):
-
         if self.scan_list_sagittal:
             visualization.display_single_slice(self.scan_top_left, self.scan_list_sagittal[0])
             self.slider_sagittal.setMaximum(len(self.scan_list_sagittal) - 1)
@@ -917,8 +999,7 @@ class MedicalImageViewer(QMainWindow):
             self.slider_axial.setMaximum(len(self.scan_list_axial) - 1)
             self.slider_axial.setValue(0)
 
-
-    # function for saving the segmented CT scans
+    # function for saving segmented CT scans
     def on_save_segmentation(self):
         self.log_message("Save segmentation action has been triggered.")
         try:
@@ -940,7 +1021,8 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Save error", error_message)
 
-    # function for closing the segmentation and updating the visualization
+
+    # function for closing the segmentation and clearing the application window
     def on_close_segmentation(self):
         self.log_message("Close segmentation action has been triggered.")
         try:
@@ -952,7 +1034,7 @@ class MedicalImageViewer(QMainWindow):
             self.ct_scans = None
             self.affine = None
 
-            # clearing image placeholders
+            # clearng img placeholders
             self.scan_list_sagittal = []
             self.scan_list_coronal = []
             self.scan_list_axial = []
@@ -972,24 +1054,24 @@ class MedicalImageViewer(QMainWindow):
             self.slider_axial.setValue(0)
             self.slider_axial.setMaximum(0)
 
-            # clearning 3D visualization
+            # clearing 3D visualization
             if hasattr(self, 'plotter'):
                 self.plotter.clear()
                 self.vtk_widget.update()
 
-            # we must also disable segmentation action
+            # disabling segmentation action (as on start, we don't need it when the images have not been loaded yet)
             self.segment_action.setEnabled(False)
 
-            self.log_message("Segmentation data and CT scans have been cleared. Application resets to its initial state.")
+            self.log_message("Segmentation data and CT scans have been cleared. Application reset to initial state.")
 
         except Exception as e:
             error_message = f"Error closing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Close error", error_message)
+            QMessageBox.critical(self, "Close Error", error_message)
+
 
     # function for handling 'Manage view' action from the menu bar
     def on_manage_view(self):
-
         self.log_message("Manage view action has been triggered.")
 
         if self.segmentation_result is None or not self.segmentation_result.any():
@@ -1006,26 +1088,221 @@ class MedicalImageViewer(QMainWindow):
             selected_organ = dialog.get_selected_organ()
             self.update_3d_view([selected_organ])  # updating 3D view with the selected organ
 
-    def update_3d_view(self, selected_organs):
 
+
+    def update_3d_view(self, selected_organs):
         self.log_message(f"Updating view for selected organs: {selected_organs}")
 
         for organ_name, volume in self.loaded_volumes.items():
             if organ_name in selected_organs:
-                volume.alpha(1)  # shows organ
+                volume.alpha(1)  # show organ
             else:
-                volume.alpha(0)  # hides organ
+                volume.alpha(0)  # hide organ
 
         self.plotter.render()  
         self.vtk_widget.update()
 
-    
 
+    # function for calculating volume of a given organ from the displayed segmentation
+    def on_calculate_volume(self):
+        try:
+            # check whether segmentation is available
+            if self.segmentation_result is None or self.affine is None:
+                QMessageBox.warning(self, "No segmentation",
+                                    "No segmentation data found. Please segment or upload a segmented scan first.")
+                return
+
+            # check whether we have segmented labels
+            if self.current_segmented_labels is None or self.current_segmented_labels.size == 0:
+                QMessageBox.warning(self, "No organs", "No organs found in the current segmentation.")
+                return
+
+            # list of organ names from the currently segmented labels
+            organs_present = []
+            for lbl in self.current_segmented_labels:
+                lbl_int = int(lbl)
+                organ_name = lbl_to_organ.get(lbl_int)
+                if organ_name is not None:
+                    organs_present.append(organ_name)
+                else:
+                    self.log_message(f"Warning: label {lbl_int} not found in lbl_to_organ.")
+
+            if len(organs_present) == 0:
+                QMessageBox.warning(self, "No organs", "No known organs found in the current segmentation.")
+                return
+
+            organ_choice, ok = QInputDialog.getItem(
+                self,
+                "Calculate volume",
+                "Choose an organ:",
+                organs_present,
+                0,
+                False
+            )
+
+            if ok and organ_choice:
+                try:
+                    self.calculate_volume_for_organ(organ_choice)
+                except Exception as calc_error:
+                    self.log_message(f"Error calculating volume: {calc_error}")
+                    QMessageBox.critical(self, "Volume calculation error",
+                                         f"An error occurred while calculating volume: {calc_error}")
+
+        except Exception as e:
+            self.log_message(f"Unexpected error in on_calculate_volume: {e}")
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {e}")
+
+    def calculate_volume_for_organ(self, organ_name):
+        if self.segmentation_result is None or self.affine is None:
+            QMessageBox.warning(self, "No segmentation",
+                                "No segmentation or affine data found. Please ensure you have segmented or uploaded a segmented scan.")
+            return
+
+        label_id = organ_to_lbl.get(organ_name, None)
+        if label_id is None:
+            QMessageBox.information(self, "Organ not found", f"No such organ label found for {organ_name}.")
+            return
+
+        count_voxels = np.sum(self.segmentation_result == label_id)
+        if count_voxels == 0:
+            QMessageBox.information(self, "No volume", f"No voxels found for {organ_name} in the current segmentation.")
+            return
+
+        try:
+            voxel_volume = np.abs(np.linalg.det(self.affine))
+            organ_volume = count_voxels * voxel_volume
+            organ_volume_ml = organ_volume / 1000.0
+
+            QMessageBox.information(self, "Organ volume",
+                                    f"The volume for {organ_name} is approximately {organ_volume_ml:.2f} ml.")
+        except Exception as e:
+            self.log_message(f"Error calculating volume: {e}")
+            QMessageBox.critical(self, "Volume calculation error", f"An error occurred while calculating volume: {e}")
+
+
+    # function for handling 'Zoom in' action from the menu bar
+    def on_zoom_in(self):
+        self.log_message("Zoom in action has been triggered.")
+        try:
+            if hasattr(self, 'plotter'):
+                self.plotter.zoom(1.2)  # zoom in by a factor of 1.2
+                self.plotter.render()
+                self.vtk_widget.update()
+            else:
+                self.log_message("No plotter available for zooming.")
+        except Exception as e:
+            error_message = f"Error during zoom in: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Zoom In Error", error_message)
+
+    # function for handling 'Zoom out' action from the menu bar
+    def on_zoom_out(self):
+        self.log_message("Zoom out action has been triggered.")
+        try:
+            if hasattr(self, 'plotter'):
+                self.plotter.zoom(0.8)  # zoom out by a factor of 0.8
+                self.plotter.render()
+                self.vtk_widget.update()
+            else:
+                self.log_message("No plotter available for zooming.")
+        except Exception as e:
+            error_message = f"Error during zoom out: {str(e)}"
+            self.log_message(error_message)
+            QMessageBox.critical(self, "Zoom Out Error", error_message)
+
+    # function for displaying help message
+    def on_help(self):
+        self.log_message("Help action has been triggered.")
+        help_text = """
+        <h3>SegMed 1.1 - User Guide</h3>
+        <p>1. Select <b>File -> Upload data</b> to upload a CT scan.</p>
+        <p>2. Use the <b>Edit -> Segment a CT scan</b> option to segment the scan.</p>
+        <p>3. In case of ready-to-upload segmentation, use the <b>Upload already segmented CT scan for visualization only</b> option.</p>
+        <p>4. Visualize the results and manage the view from within the application.</p>
+        <p>5. If needed, use the <b>Help -> Report a problem</b> option to report an issue.</p>
+        <p>
+            To view the full documentation: 
+            <a href='https://drive.google.com/uc?export=download&id=1f4N7go6s8Td242nYuRbqhYa_GSqhcJ7A' target='_blank'>click here</a>.
+        </p>
+        """
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Help")
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(help_text)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
+    # function for displaying report problem diagnostic information
+    def on_report_problem(self):
+        self.log_message("Report problem action has been triggered.")
+        subject = "Problem Report - SegMed 1.1"
+        body = "Please describe the issue you have encountered:\n\nSteps to reproduce:\n\nAdditional information:"
+        email_address = "segmed.help@gmail.com"
+        mailto_link = f"mailto:{email_address}?subject={subject}&body={body}"
+        QDesktopServices.openUrl(QUrl(mailto_link))
+
+
+    # function for displaying "Contribute to SegMed development" information
+    def on_contribute(self):
+        self.log_message("Contribute action has been triggered.")
+        github_url = "https://github.com/Klossek02/Inzynierka-TotalSegmentator"  # Link to repository
+        QDesktopServices.openUrl(QUrl(github_url))
+
+
+    # function displaying "About" dialog with application name, its version, and authors
+    def on_about(self):
+        self.log_message("About action has been triggered.")
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About")
+        dialog.setFixedSize(400, 300)
+
+        about_text = """
+        <div style="text-align: center; font-size: 16px;">
+            <b><i>SegMed</i></b><br><br>
+            <b><i>Version 1.1</i></b><br><br>
+            Authors: 
+            <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">
+                <li>Aleksandra Kłos</li>
+                <li>Olga Czajkowska</li>
+                <li>Magdalena Leymańczyk</li>
+            </ul>
+        </div>
+        """
+
+        layout = QVBoxLayout(dialog)
+        label = QLabel(about_text)
+        label.setTextFormat(Qt.RichText)
+        layout.addWidget(label)
+
+        dialog.exec_()
+
+    # function for handling image slider movement for each image placeholder
+    def on_slider_move(self):
+        try:
+            current_sagittal = self.slider_sagittal.value()
+            current_coronal = self.slider_coronal.value()
+            current_axial = self.slider_axial.value()
+
+            if current_sagittal < len(self.scan_list_sagittal):
+                visualization.display_single_slice(self.scan_top_left, self.scan_list_sagittal[current_sagittal])
+            if current_coronal < len(self.scan_list_coronal):
+                visualization.display_single_slice(self.scan_top_right, self.scan_list_coronal[current_coronal])
+            if current_axial < len(self.scan_list_axial):
+                visualization.display_single_slice(self.scan_bottom_left, self.scan_list_axial[current_axial])
+
+        except Exception as e:
+            error_message = f"Error moving sliders: {str(e)}"
+            self.log_message(error_message)
+
+
+
+    # function for creating a new 3D visualization window (optional feature)
     def create_3d_visualization_window(self, filtered_data):
         try:
             self.log_message("Rendering 3D visualization in a new window...")
 
-            # cerating a new window
+            # creating a new window
             self.visualization_window = QMainWindow(self)
             self.visualization_window.setWindowTitle("3D Visualization")
             self.visualization_window.setGeometry(100, 100, 800, 600)
@@ -1058,14 +1335,14 @@ class MedicalImageViewer(QMainWindow):
                 vol = load(seg_path).color(rgb_color)
                 volume.append(vol)
 
-                # after loading we need to remove STL file
+                # removing temporary STL file
                 if os.path.exists(seg_path):
                     os.remove(seg_path)
 
             if volume:
                 plotter.show(volume, axes=1)
             else:
-                QMessageBox.warning(self, "Visualization error", "No volumes generated for visualization.")
+                QMessageBox.warning(self, "Visualization Error", "No volumes generated for visualization.")
 
             vtk_widget.update()
             self.visualization_window.show()
@@ -1073,209 +1350,11 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error in rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization error", error_message)
-        
-
-    # function for calculating volume of a given organ from the displayed segmentation
-    def on_calculate_volume(self):
-        try:
-            # checking whether segmentation is available
-            if self.segmentation_result is None or self.affine is None:
-                QMessageBox.warning(self, "No segmentation",
-                                    "No segmentation data found. Please segment or upload a segmented scan first.")
-                return
-
-            # making sure we have segmented labels
-            if self.current_segmented_labels is None or self.current_segmented_labels.size == 0:
-                QMessageBox.warning(self, "No organs", "No organs found in the current segmentation.")
-                return
-
-            # retrieving a list of organ names from the currently segmented labels
-            organs_present = []
-            for lbl in self.current_segmented_labels:
-                lbl_int = int(lbl)
-                organ_name = lbl_to_organ.get(lbl_int)
-                if organ_name is not None:
-                    organs_present.append(organ_name)
-                else:
-                    # log message if no organ found for this label
-                    self.log_message(f"WARNING: label {lbl_int} not found in lbl_to_organ.")
-
-            if len(organs_present) == 0:
-                QMessageBox.warning(self, "No organs", "No known organs found in the current segmentation.")
-                return
-
-            organ_choice, ok = QInputDialog.getItem(
-                self,
-                "Calculate volume",
-                "Choose an organ:",
-                organs_present,
-                0,
-                False
-            )
-
-            if ok and organ_choice:
-                try:
-                    self.calculate_volume_for_organ(organ_choice)
-                except Exception as calc_error:
-                    self.log_message(f"Error calculating volume: {calc_error}")
-                    QMessageBox.critical(self, "Volume calculation error",
-                                         f"An error occurred while calculating volume: {calc_error}")
-
-        except Exception as e:
-            self.log_message(f"Unexpected error in on_calculate_volume: {e}")
-            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {e}")
-
-
-    def calculate_volume_for_organ(self, organ_name):
-        if self.segmentation_result is None or self.affine is None:
-            QMessageBox.warning(self, "No segmentation",
-                                "No segmentation or affine data found. Please ensure you have segmented or uploaded a segmented scan.")
-            return
-
-        label_id = organ_to_lbl.get(organ_name, None)
-        if label_id is None:
-            QMessageBox.information(self, "Organ not found", f"No such organ label found for {organ_name}.")
-            return
-
-        count_voxels = np.sum(self.segmentation_result == label_id)
-        if count_voxels == 0:
-            QMessageBox.information(self, "No volume", f"No voxels found for {organ_name} in the current segmentation.")
-            return
-
-        try:
-            voxel_volume = np.abs(np.linalg.det(self.affine))
-            organ_volume = count_voxels * voxel_volume
-            organ_volume_ml = organ_volume / 1000.0
-
-            QMessageBox.information(self, "Organ volume",
-                                    f"The volume for {organ_name} is approximately {organ_volume_ml:.2f} ml.")
-        except Exception as e:
-            self.log_message(f"Error calculating volume: {e}")
-            QMessageBox.critical(self, "Volume Calculation Error", f"An error occurred while calculating volume: {e}")
-
-
-
-    # function for handling 'Zoom in' action from the menu bar
-    def on_zoom_in(self):
-        self.log_message("Zoom in action has been triggered.")
-        try:
-            if hasattr(self, 'plotter'):
-                self.plotter.zoom(1.2)  # zoom in by a factor 1.2
-                self.plotter.render()
-                self.vtk_widget.update()
-            else:
-                self.log_message("No plotter available for zooming.")
-        except Exception as e:
-            error_message = f"Error during zoom in: {str(e)}"
-            self.log_message(error_message)
-            QMessageBox.critical(self, "Zoom In Error", error_message)
-
-    # function for handling 'Zoom in' action from the menu bar
-    def on_zoom_out(self):
-        self.log_message("Zoom out action has been triggered.")
-        try:
-            if hasattr(self, 'plotter'):
-                self.plotter.zoom(0.8)  # zoom out by a factor 0.8
-                self.plotter.render()
-                self.vtk_widget.update()
-            else:
-                self.log_message("No plotter available for zooming.")
-        except Exception as e:
-            error_message = f"Error during zoom out: {str(e)}"
-            self.log_message(error_message)
-            QMessageBox.critical(self, "Zoom out error", error_message)
-
-    # function for displaying help message
-    def on_help(self):
-        self.log_message("Help action has been triggered.")
-        help_text = """
-        <h3>SegMed 1.1 - User guide</h3>
-        <p>1. Select <b>File -> Upload data</b> to upload a CT scan.</p>
-        <p>2. Use the <b>Edit -> Segment a CT scan</b> option to segment the scan.</p>
-        <p>3. In case of ready-to-upload segmentation, use the <b>Upload already segmented CT scan for visualization only</b> button.</p>
-        <p>4. Visualize the results and manage the view from within the application.</p>
-        <p>5. If needed, use the <b>Help -> Report a problem</b> option to report an issue.</p>
-        <p>
-            To view the full documentation: 
-            <a href='https://drive.google.com/uc?export=download&id=1f4N7go6s8Td242nYuRbqhYa_GSqhcJ7A' target='_blank'>click here</a>.
-        </p>
-        """
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Help")
-        msg.setTextFormat(Qt.RichText)
-        msg.setText(help_text)
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
-        #QMessageBox.information(self, "Help", "SegMed help :\n\n1. Upload CT scans.\n2. Perform segmentation.\n3. Visualize results.")
-
-
-    # function for displaying report problem diagnostic information
-    def on_report_problem(self):
-        self.log_message("Report problem action has been triggered.")
-        subject = "Problem report - SegMed 1.1"
-        body = "Please describe the issue you have encountered:\n\nSteps to reproduce:\n\nAdditional information:"
-        email_address = "segmed.help@gmail.com"
-        mailto_link = f"mailto:{email_address}?subject={subject}&body={body}"
-        QDesktopServices.openUrl(QUrl(mailto_link))
-        #QMessageBox.information(self, "Report problem", "Please provide us with the details of the problem you encountered.")
-
-    # function for displaying "Contribute with Us!" information
-    def on_contribute(self):
-        self.log_message("Contribute action has been triggered.")
-        github_url = "https://github.com/Klossek02/Inzynierka-TotalSegmentator"  # link to repository
-        QDesktopServices.openUrl(QUrl(github_url))
-
-    # function displaying "About" dialog with application name, its version and authors
-    def on_about(self):
-        self.log_message("About action has been triggered.")
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("About")
-        dialog.setFixedSize(400,300)
-
-        about_text = """
-        <div style = "text-align: center; font-size: 16px;">
-        <b><i>SegMed</i></b><br><br>
-        <b><i>Version 1.1</i></b><br><br>
-        Authors: 
-        <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">
-            <li>Aleksandra Kłos</li>
-            <li>Olga Czajkowska</li>
-            <li>Magdalena Leymańczyk</li>
-        </ul>
-        </div>
-        """
-
-        layout = QVBoxLayout(dialog)
-        label = QLabel(about_text)
-        label.setTextFormat(Qt.RichText)
-        layout.addWidget(label)
-
-        dialog.exec_()
-
-    # function for handling image slider movement for each image placeholder
-    def on_slider_move(self):
-        try:
-            current_sagittal = self.slider_sagittal.value()
-            current_coronal = self.slider_coronal.value()
-            current_axial = self.slider_axial.value()
-            
-            if current_sagittal < len(self.scan_list_sagittal):
-                visualization.display_single_slice(self.scan_top_left, self.scan_list_sagittal[current_sagittal])
-            if current_coronal < len(self.scan_list_coronal):
-                visualization.display_single_slice(self.scan_top_right, self.scan_list_coronal[current_coronal])
-            if current_axial < len(self.scan_list_axial):
-                visualization.display_single_slice(self.scan_bottom_left, self.scan_list_axial[current_axial])
-
-        except Exception as e:
-            error_message = f"Error moving sliders: {str(e)}"
-            self.log_message(error_message)
-
+            QMessageBox.critical(self, "Visualization Error", error_message)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     ex = MedicalImageViewer()
-    sys.exit(app.exec_()) 
+    sys.exit(app.exec_())

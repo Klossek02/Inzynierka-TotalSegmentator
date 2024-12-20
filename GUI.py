@@ -272,7 +272,7 @@ class MedicalImageViewer(QMainWindow):
                     self.log_message("3D visualization rendered successfully.")
                 else:
                     self.log_message("No volumes generated for visualization.")
-                    QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
+                    QMessageBox.warning(self, "Visualization warning", "No volumes were generated for visualization.")
 
             else:
                 self.log_message("No segmentation file provided. Visualization skipped.")
@@ -282,71 +282,8 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization Error", error_message)
+            QMessageBox.critical(self, "Visualization error", error_message)
 
-
-    # function for rendering 3D visualization from data provided
-    def render_3d_visualization_from_data(self, seg_data):
-        try:
-            self.vtk_widget.clear()
-            self.log_message("Rendering 3D visualization from segmentation data...")
-
-            self.plotter = Plotter(qt_widget=self.vtk_widget)
-            self.plotter.background("#F5F5F5")
-            self.loaded_volumes.clear()
-
-            if seg_data is None or seg_data.size == 0:
-                self.log_message("Segmentation data is empty or None.")
-                QMessageBox.warning(self, "Visualization Error", "No valid segmentation data provided.")
-                return
-
-            # extractung unique labels excluding background
-            unique_lbls = np.unique(seg_data)
-            unique_lbls = unique_lbls[unique_lbls != 0] # excluding the background (label 0)
-            if len(unique_lbls) == 0:
-                self.log_message("No valid labels found in segmentation data.")
-                QMessageBox.warning(self, "Visualization Error", "No valid labels found in segmentation data.")
-                return
-
-            # storing for volume calculation
-            self.current_segmented_labels = unique_lbls
-
-            self.log_message(f"Unique labels in segmentation: {unique_lbls}")
-
-            for lbl in unique_lbls:
-                organ_name = lbl_to_organ.get(int(lbl), f'label_{int(lbl)}')
-                organ_mask = (seg_data == lbl).astype(np.uint8)
-                if np.sum(organ_mask) == 0:
-                    self.log_message(f"Skipping label {lbl} ({organ_name}), no data found.")
-                    continue
-
-                seg_path = f'segmented_{organ_name}.stl'
-                demo.convert_to_stl(organ_mask, seg_path)
-
-                # assigning color
-                color_hex = class_to_color.get(int(lbl), "#FFFFFF")
-                rgb_color = to_rgb(color_hex)
-
-                vol = load(seg_path).color(rgb_color)
-                self.loaded_volumes[organ_name] = vol
-
-                if os.path.exists(seg_path):
-                    os.remove(seg_path)
-
-            if self.loaded_volumes:
-                self.plotter.show(list(self.loaded_volumes.values()), axes=1)
-                self.log_message("3D visualization rendered successfully.")
-            else:
-                self.log_message("No volumes were generated for visualization.")
-                QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
-
-            self.plotter.background("#F5F5F5")
-            self.vtk_widget.update()
-
-        except Exception as e:
-            error_message = f"Error rendering 3D visualization: {str(e)}"
-            self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization Error", error_message)
 
 
     # UI components, layout, styling visible for the user
@@ -355,12 +292,12 @@ class MedicalImageViewer(QMainWindow):
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
         QToolTip.setFont(QFont('SansSerif', 10))
 
-        # Screen dimensions
+        # screen dimensions
         screen = QApplication.desktop().screenGeometry()
         screen_width = screen.width()
         screen_height = screen.height()
 
-        # Apply styles
+        # styles
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #FFFFFF;
@@ -742,7 +679,7 @@ class MedicalImageViewer(QMainWindow):
         report_problem_action.triggered.connect(self.on_report_problem)  
         help_menu.addAction(report_problem_action)
 
-        contribute_action = QAction('Contribute to SegMed Development', self)
+        contribute_action = QAction('Contribute to SegMed development', self)
         contribute_action.setShortcut('Ctrl+T')
         contribute_action.triggered.connect(self.on_contribute)
         help_menu.addAction(contribute_action)
@@ -897,7 +834,7 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"ERROR: Error while performing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Segmentation Error", error_message)
+            QMessageBox.critical(self, "Segmentation error", error_message)
 
 
     # function for rendering 3D visualization from segmentation data
@@ -912,7 +849,7 @@ class MedicalImageViewer(QMainWindow):
 
             if seg_data is None or seg_data.size == 0:
                 self.log_message("Segmentation data is empty or None.")
-                QMessageBox.warning(self, "Visualization Error", "No valid segmentation data provided.")
+                QMessageBox.warning(self, "Visualization error", "No valid segmentation data provided.")
                 return
 
             # extracting unique lbls excluding background
@@ -920,7 +857,7 @@ class MedicalImageViewer(QMainWindow):
             unique_lbls = unique_lbls[unique_lbls != 0]
             if len(unique_lbls) == 0:
                 self.log_message("No valid labels found in segmentation data.")
-                QMessageBox.warning(self, "Visualization Error", "No valid labels found in segmentation data.")
+                QMessageBox.warning(self, "Visualization error", "No valid labels found in segmentation data.")
                 return
 
             # storing for volume calculation
@@ -953,7 +890,7 @@ class MedicalImageViewer(QMainWindow):
                 self.log_message("3D visualization rendered successfully.")
             else:
                 self.log_message("No volumes were generated for visualization.")
-                QMessageBox.warning(self, "Visualization Warning", "No volumes were generated for visualization.")
+                QMessageBox.warning(self, "Visualization warning", "No volumes were generated for visualization.")
 
             self.plotter.background("#F5F5F5")
             self.vtk_widget.update()
@@ -961,7 +898,7 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization Error", error_message)
+            QMessageBox.critical(self, "Visualization error", error_message)
 
 
     # function for loading a trained model to 3D organ visualization
@@ -979,7 +916,7 @@ class MedicalImageViewer(QMainWindow):
         except FileNotFoundError:
             error_message = f"ERROR: {model_path} not found."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Model Loading Error", error_message)
+            QMessageBox.critical(self, "Model loading error", error_message)
             raise
 
     # function for updating image placeholders (3 of them) with the first slice from each view
@@ -1008,7 +945,7 @@ class MedicalImageViewer(QMainWindow):
                     self,
                     "Save segmentation result",
                     "segmentation_result.nii.gz",
-                    "NIfTI Files (*.nii *.nii.gz)"
+                    "NIfTI files (*.nii *.nii.gz)"
                 )
                 if save_path:
                     segmentation.save_segmentation(self.segmentation_result, self.affine, save_path)
@@ -1067,7 +1004,7 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error closing segmentation: {str(e)}."
             self.log_message(error_message)
-            QMessageBox.critical(self, "Close Error", error_message)
+            QMessageBox.critical(self, "Close error", error_message)
 
 
     # function for handling 'Manage view' action from the menu bar
@@ -1075,7 +1012,7 @@ class MedicalImageViewer(QMainWindow):
         self.log_message("Manage view action has been triggered.")
 
         if self.segmentation_result is None or not self.segmentation_result.any():
-            QMessageBox.warning(self, "Manage View", "Please perform segmentation first.")
+            QMessageBox.warning(self, "Manage view", "Please perform segmentation first.")
             return
 
         # unique organ names
@@ -1087,7 +1024,9 @@ class MedicalImageViewer(QMainWindow):
         if dialog.exec_() == QDialog.Accepted:
             selected_organ = dialog.get_selected_organ()
             self.update_3d_view([selected_organ])  # updating 3D view with the selected organ
-
+        elif dialog.was_closed:
+            self.log_message("Dialog was closed. Returning to the full segmentation view.")
+            self.update_3d_view(organ_names)  # Show all organs
 
 
     def update_3d_view(self, selected_organs):
@@ -1259,7 +1198,7 @@ class MedicalImageViewer(QMainWindow):
 
         about_text = """
         <div style="text-align: center; font-size: 16px;">
-            <b><i>SegMed</i></b><br><br>
+            <b><i>SegMed - 3D medical image segmentation</i></b><br><br>
             <b><i>Version 1.1</i></b><br><br>
             Authors: 
             <ul style="list-style-type: disc; padding-left: 20px; text-align: left;">

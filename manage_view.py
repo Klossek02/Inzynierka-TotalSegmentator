@@ -1,3 +1,5 @@
+# === manage_view.py ===
+
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton, QHBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QGuiApplication
@@ -6,7 +8,7 @@ from PyQt5.QtGui import QGuiApplication
 class OrganSelectionDialog(QDialog):
     def __init__(self, organs, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Select an Organ")
+        self.setWindowTitle("Select an organ")
         self.setFixedSize(300, 150)  # window's fixed size
 
         # window in the middle
@@ -38,6 +40,18 @@ class OrganSelectionDialog(QDialog):
 
         layout.addLayout(button_layout)
         self.setLayout(layout)
+
+        self.was_closed = True  # if dialog window was closed
+
+    
+    def closeEvent(self, event):
+        self.was_closed = True
+        super().closeEvent(event)
+
+    def accept(self):
+        self.was_closed = False
+        super().accept()
+
 
     # function to get (return) the selected organ
     def get_selected_organ(self):

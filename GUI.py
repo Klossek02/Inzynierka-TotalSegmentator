@@ -903,7 +903,7 @@ class MedicalImageViewer(QMainWindow):
 
     # function for loading a trained model to 3D organ visualization
     def load_segmentation_model(self) -> torch.nn.Module:
-        model_path = "best_metric_model2.pth"  # Ensure the correct model path
+        model_path = "best_metric_model2.pth"  #  model path
         try:
             # initializing model with the same parameters used during training
             model = get_unet_model(num_classes=118, in_channels=1)
@@ -1026,7 +1026,7 @@ class MedicalImageViewer(QMainWindow):
             self.update_3d_view([selected_organ])  # updating 3D view with the selected organ
         elif dialog.was_closed:
             self.log_message("Dialog was closed. Returning to the full segmentation view.")
-            self.update_3d_view(organ_names)  # Show all organs
+            self.update_3d_view(organ_names)  # show all organs
 
 
     def update_3d_view(self, selected_organs):
@@ -1132,7 +1132,7 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error during zoom in: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Zoom In Error", error_message)
+            QMessageBox.critical(self, "Zoom in error", error_message)
 
     # function for handling 'Zoom out' action from the menu bar
     def on_zoom_out(self):
@@ -1147,15 +1147,15 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error during zoom out: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Zoom Out Error", error_message)
+            QMessageBox.critical(self, "Zoom out error", error_message)
 
     # function for displaying help message
     def on_help(self):
         self.log_message("Help action has been triggered.")
         help_text = """
-        <h3>SegMed 1.1 - User Guide</h3>
-        <p>1. Select <b>File -> Upload data</b> to upload a CT scan.</p>
-        <p>2. Use the <b>Edit -> Segment a CT scan</b> option to segment the scan.</p>
+        <h3>SegMed 1.1 - User guide</h3>
+        <p>1. Select <b>file -> Upload data</b> to upload a CT scan.</p>
+        <p>2. Use the <b>edit -> Segment a CT scan</b> option to segment the scan.</p>
         <p>3. In case of ready-to-upload segmentation, use the <b>Upload already segmented CT scan for visualization only</b> option.</p>
         <p>4. Visualize the results and manage the view from within the application.</p>
         <p>5. If needed, use the <b>Help -> Report a problem</b> option to report an issue.</p>
@@ -1243,7 +1243,7 @@ class MedicalImageViewer(QMainWindow):
 
             # creating a new window
             self.visualization_window = QMainWindow(self)
-            self.visualization_window.setWindowTitle("3D Visualization")
+            self.visualization_window.setWindowTitle("3D visualization")
             self.visualization_window.setGeometry(100, 100, 800, 600)
 
             # adding VTK widget
@@ -1281,7 +1281,7 @@ class MedicalImageViewer(QMainWindow):
             if volume:
                 plotter.show(volume, axes=1)
             else:
-                QMessageBox.warning(self, "Visualization Error", "No volumes generated for visualization.")
+                QMessageBox.warning(self, "Visualization error", "No volumes generated for visualization.")
 
             vtk_widget.update()
             self.visualization_window.show()
@@ -1289,7 +1289,7 @@ class MedicalImageViewer(QMainWindow):
         except Exception as e:
             error_message = f"Error in rendering 3D visualization: {str(e)}"
             self.log_message(error_message)
-            QMessageBox.critical(self, "Visualization Error", error_message)
+            QMessageBox.critical(self, "Visualization error", error_message)
 
 
 if __name__ == '__main__':

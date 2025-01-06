@@ -23,6 +23,8 @@ import visualization
 import segmentation
 from model import get_unet_model
 from manage_view import OrganSelectionDialog  
+from data_import import validate_nifti, load_nifti, reorient_scan
+
 
 # wigets and libraries used: https://doc.qt.io/qt-6/qtwidgets-module.html   https://doc.qt.io/qt-6/widget-classes.html
 
@@ -208,6 +210,41 @@ class HelpWindow(QMainWindow):
         self.statusBar().showMessage("Loading documentation...")
         self.show()
 
+
+class ZoomableLabel(QLabel):
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignCenter)
+        self.setScaledContents(True)
+        self.original_pixmap = None
+
+    def mouseDoubleClickEvent(self, event):
+        if self.pixmap():
+            self.original_pixmap = self.pixmap()
+
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Zoomed view")
+            dlg.setModal(True)
+            dlg.resize(800, 600)
+
+            zoomed_label = QLabel(dlg)
+            zoomed_label.setAlignment(Qt.AlignCenter)
+            scaled = self.original_pixmap.scaled(
+                dlg.width(), dlg.height(),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            zoomed_label.setPixmap(scaled)
+
+            layout = QVBoxLayout()
+            layout.addWidget(zoomed_label)
+            dlg.setLayout(layout)
+
+            dlg.exec_()
+
+        super().mouseDoubleClickEvent(event)
+
+
+
 class MedicalImageViewer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -261,6 +298,10 @@ class MedicalImageViewer(QMainWindow):
                     color_hex = class_to_color.get(int(lbl), "#FFFFFF")
                     rgb_color = to_rgb(color_hex)
                     vol = load(seg_path).color(rgb_color)
+                    #vol.rotate_x(-90)
+                    #vol.rotate_y(-90)
+                    vol.rotate_z(-90)
+                    vol.scale([1, 1, -1])
                     volume.append(vol)
 
                     # clearning temp STL files
@@ -399,21 +440,24 @@ class MedicalImageViewer(QMainWindow):
         """
 
         # views
-        self.scan_top_left = QLabel("Sagittal view")
+        #self.scan_top_left = QLabel("Sagittal view")
+        self.scan_top_left = ZoomableLabel("Sagittal view", self)
         self.scan_top_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_left.setAlignment(Qt.AlignCenter)
         self.scan_top_left.setStyleSheet(placeholder_style)
         self.scan_top_left.setFixedSize(400, 300)
         self.scan_top_left.setScaledContents(True)
 
-        self.scan_top_right = QLabel("Coronal view")
+        #self.scan_top_right = QLabel("Coronal view")
+        self.scan_top_right = ZoomableLabel("Coronal view", self)
         self.scan_top_right.setFrameStyle(QFrame.StyledPanel)
         self.scan_top_right.setAlignment(Qt.AlignCenter)
         self.scan_top_right.setStyleSheet(placeholder_style)
         self.scan_top_right.setFixedSize(400, 300)
         self.scan_top_right.setScaledContents(True)
 
-        self.scan_bottom_left = QLabel("Axial view")
+        #self.scan_bottom_left = QLabel("Axial view")
+        self.scan_bottom_left = ZoomableLabel("Axial view", self)
         self.scan_bottom_left.setFrameStyle(QFrame.StyledPanel)
         self.scan_bottom_left.setAlignment(Qt.AlignCenter)
         self.scan_bottom_left.setStyleSheet(placeholder_style)
@@ -458,19 +502,19 @@ class MedicalImageViewer(QMainWindow):
         self.slider_sagittal.valueChanged.connect(self.on_slider_move)
         self.slider_sagittal.setStyleSheet(slider_style)
         self.slider_sagittal.setFixedWidth(400)
-        self.slider_sagittal.setToolTip("Adjust Sagittal Slice")
+        self.slider_sagittal.setToolTip("Adjust sagittal slice")
 
         self.slider_coronal = QSlider(Qt.Horizontal)
         self.slider_coronal.valueChanged.connect(self.on_slider_move)
         self.slider_coronal.setStyleSheet(slider_style)
         self.slider_coronal.setFixedWidth(400)
-        self.slider_coronal.setToolTip("Adjust Coronal Slice")
+        self.slider_coronal.setToolTip("Adjust coronal slice")
 
         self.slider_axial = QSlider(Qt.Horizontal)
         self.slider_axial.valueChanged.connect(self.on_slider_move)
         self.slider_axial.setStyleSheet(slider_style)
         self.slider_axial.setFixedWidth(400)
-        self.slider_axial.setToolTip("Adjust Axial Slice")
+        self.slider_axial.setToolTip("Adjust axial slice")
 
         # inner layouts for each view
         inner_layout_sagittal = QVBoxLayout()
@@ -576,6 +620,11 @@ class MedicalImageViewer(QMainWindow):
         self.error_log.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         main_layout.addWidget(self.error_log)
+
+
+        # welcome message at the start of the log
+        self.log_message("Welcome to SegMed! Please choose an action from the menu bar above.")
+
 
         # progress bar
         self.progress_bar = QProgressBar(self)
@@ -731,8 +780,10 @@ class MedicalImageViewer(QMainWindow):
                     file_path = chosen_file[0]
                     self.log_message(f"Uploading CT scan from {file_path}...")
 
-                    if data_import.validate_nifti(file_path):
-                        ct_data, affine = data_import.load_nifti(file_path)
+                    if validate_nifti(file_path):
+                        ct_data, affine = load_nifti(file_path)
+                        ct_data, affine = reorient_scan(ct_data, affine, desired_ornt=('R', 'A', 'S'), logger=self.log_message)
+
                         self.ct_scans = ct_data
                         self.affine = affine
                         self.log_message("CT scan has been validated and successfully uploaded.")
@@ -752,6 +803,7 @@ class MedicalImageViewer(QMainWindow):
             self.log_message(error_message)
             QMessageBox.critical(self, "Upload error", error_message)
 
+
     def on_upload_segmented_ct_scan(self):
         self.log_message("Upload segmented CT scan action has been triggered.")
         try:
@@ -765,13 +817,15 @@ class MedicalImageViewer(QMainWindow):
                     file_path = chosen_file[0]
                     self.log_message(f"Uploading segmented CT scan from {file_path}...")
 
-                    if data_import.validate_nifti(file_path):
-                        seg_data, affine = data_import.load_nifti(file_path)
+                    if validate_nifti(file_path):
+                        seg_data, affine = load_nifti(file_path)
+                        seg_data, affine = reorient_scan(seg_data, affine, desired_ornt=('R', 'A', 'S'), logger=self.log_message)
+
                         self.segmentation_result = seg_data
                         self.affine = affine
                         self.log_message("Segmented CT scan has been successfully uploaded.")
 
-                        # Rendering segmentation
+                        # rendering segmentation
                         self.render_3d_visualization_from_data(seg_data)
 
                         # if it's already performed, disable segmentation (action)
@@ -880,6 +934,13 @@ class MedicalImageViewer(QMainWindow):
                 rgb_color = to_rgb(color_hex)
 
                 vol = load(seg_path).color(rgb_color)
+                # 1) rotating -90 degrees around Z
+                #    (old X -> new -Y, old Y -> new +X, old Z -> new  Z)
+                vol.rotate_z(-90)
+                # 2) flipping Y-axis only (scaling Y by -1)
+                #    (X stays X, Y -> -Y, Z stays Z)
+                vol.scale([1, -1, 1])
+
                 self.loaded_volumes[organ_name] = vol
 
                 if os.path.exists(seg_path):
@@ -1124,7 +1185,7 @@ class MedicalImageViewer(QMainWindow):
         self.log_message("Zoom in action has been triggered.")
         try:
             if hasattr(self, 'plotter'):
-                self.plotter.zoom(1.2)  # zoom in by a factor of 1.2
+                self.plotter.zoom(1.1)  # zoom in by a factor of 1.2
                 self.plotter.render()
                 self.vtk_widget.update()
             else:
@@ -1139,7 +1200,7 @@ class MedicalImageViewer(QMainWindow):
         self.log_message("Zoom out action has been triggered.")
         try:
             if hasattr(self, 'plotter'):
-                self.plotter.zoom(0.8)  # zoom out by a factor of 0.8
+                self.plotter.zoom(0.9)  # zoom out by a factor of 0.8
                 self.plotter.render()
                 self.vtk_widget.update()
             else:

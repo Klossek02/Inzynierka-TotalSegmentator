@@ -208,6 +208,7 @@ class HelpWindow(QMainWindow):
         self.setCentralWidget(self.browser)
 
         self.statusBar().showMessage("Loading documentation...")
+        self.file_path = None
         self.show()
 
 
@@ -783,7 +784,7 @@ class MedicalImageViewer(QMainWindow):
                     if validate_nifti(file_path):
                         ct_data, affine = load_nifti(file_path)
                         ct_data, affine = reorient_scan(ct_data, affine, desired_ornt=('R', 'A', 'S'), logger=self.log_message)
-
+                        self.file_path = file_path
                         self.ct_scans = ct_data
                         self.affine = affine
                         self.log_message("CT scan has been validated and successfully uploaded.")
@@ -867,21 +868,23 @@ class MedicalImageViewer(QMainWindow):
             timer.timeout.connect(simulate_progress)
             timer.start(100)  # each 100 ms progress update
 
-            # preprocessing CT image for segmentation
-            self.log_message("Preprocessing the CT image for segmentation...")
-            img_tensor = segmentation.preprocess_img(self.ct_scans, target_size=(128, 128, 128))
-            self.log_message(f"Preprocessed image tensor shape: {img_tensor.shape}")  
+            # # preprocessing CT image for segmentation
+            # self.log_message("Preprocessing the CT image for segmentation...")
+            # img_tensor = segmentation.preprocess_img(self.ct_scans, target_size=(128, 128, 128))
+            # self.log_message(f"Preprocessed image tensor shape: {img_tensor.shape}")
+            #
+            # self.log_message("Loading the segmentation model...")
+            # model = self.load_segmentation_model()
+            #
+            # self.log_message("Performing segmentation...")
+            # seg_out = segmentation.segment_img(model, img_tensor)
+            # self.log_message(f"Segmentation output shape: {seg_out.shape}")
+            #
+            # self.segmentation_result = seg_out
 
-            self.log_message("Loading the segmentation model...")
-            model = self.load_segmentation_model()
+            seg_out = segmentation.segment_img_with_TS(self.file_path)
 
-            self.log_message("Performing segmentation...")
-            seg_out = segmentation.segment_img(model, img_tensor)
-            self.log_message(f"Segmentation output shape: {seg_out.shape}")
-
-            self.segmentation_result = seg_out
-
-            self.render_3d_visualization_from_data(seg_out)
+            self.render_3d_visualization_from_data(seg_out.get_fdata())
 
             self.log_message("Segmentation completed. You can now save the segmentation from the 'File' menu.")
 

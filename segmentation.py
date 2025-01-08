@@ -5,9 +5,11 @@ import numpy as np
 import nibabel as nib
 
 from monai.transforms import Resize, ScaleIntensity
+from totalsegmentator.python_api import totalsegmentator
 
 from model import get_unet_model
 
+__name__ = '__main__'
 
 # preparing CT scan for segmentation by resizing, normalizing and converting it into proper format 
 def preprocess_img(ct_scan, target_size=(128, 128, 128)):
@@ -74,3 +76,8 @@ def save_segmentation(seg_out, affine, save_path):
     seg_img = nib.Nifti1Image(seg_out.astype(np.int16), affine)
     nib.save(seg_img, save_path)
     print(f"Segmentation has been saved at: {save_path}")  
+
+def segment_img_with_TS(seg_in):
+    if __name__ == '__main__':
+        seg_out = totalsegmentator(seg_in, fast=True)
+        return seg_out

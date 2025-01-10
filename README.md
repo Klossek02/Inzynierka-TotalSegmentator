@@ -1,4 +1,4 @@
-# Inzynierka-TotalSegmentator
+# WUT Engineering thesis
 
 *Title*: Desktop application for visualization and analysis of the human body based on 3D segmentation using deep learning techniques
 

@@ -29,7 +29,7 @@ from visualization import display_single_slice, overlay_slices, convert_seg_slic
 
 
 # source for the wigets and libraries used: https://doc.qt.io/qt-6/qtwidgets-module.html ; https://doc.qt.io/qt-6/widget-classes.html
-
+# for this file and the remaining Python files, we use Docstring commenting style: https://peps.python.org/pep-0257/
 
 # the organ mapping can be found here: https://github.com/wasserth/TotalSegmentator?tab=readme-ov-file
 organ = {

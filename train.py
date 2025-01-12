@@ -359,7 +359,7 @@ if __name__ == "__main__":
 
     # loading best model for testing; source: https://pytorch.org/tutorials/beginner/saving_loading_models.html
     best_model = get_unet_model(num_classes = 118, in_channels = 1)
-    best_model.load_state_dict(torch.load("best_metric_model2.pth"))
+    best_model.load_state_dict(torch.load("best_metric_model.pth"))
     best_model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
 

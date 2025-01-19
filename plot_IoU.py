@@ -64,7 +64,7 @@ def plot_organ_iou(organ_iou):
 
 
 # File path to the evaluation output
-file_path = r"C:\Users\magda\Desktop\EvaluationResults.csv"
+file_path = "/EvaluationResults.csv"
 
 # Parse and calculate IoU
 iou_data = parse_and_calculate_iou(file_path)

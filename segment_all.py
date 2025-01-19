@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     # Call the function inside the main block
     predict_all_cts(
-        input_dir=r"C:\Users\magda\Desktop\Studia\INZYNIERKA\Totalsegmentator_dataset_v201", #directory of the dataset
-        output_dir=r"C:\Users\magda\Desktop\Predictions", #directory of output predictions
+        input_dir=r"/Totalsegmentator_dataset_v201", #directory of the dataset
+        output_dir="/Predictions", #directory of output predictions
         start_patient="s0000"
     )

@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load the dataset
-file_path = r"C:\Users\magda\Desktop\EvaluationResults.csv"
+file_path = "/EvaluationResults.csv"
 df = pd.read_csv(file_path)
 
 # Debug: Ensure column names are correct and check for issues

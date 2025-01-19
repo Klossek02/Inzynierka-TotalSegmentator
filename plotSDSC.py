@@ -51,7 +51,7 @@ def plot_surface_dice(surface_dice_data):
 
 
 # File path to the evaluation output
-file_path = r"C:\Users\magda\Desktop\EvaluationResults.csv"
+file_path = "/EvaluationResults.csv"
 
 # Parse and plot surface dice scores
 surface_dice_data = parse_surface_dice(file_path)

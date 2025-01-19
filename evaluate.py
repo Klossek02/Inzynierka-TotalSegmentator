@@ -66,8 +66,8 @@ def calc_metrics(subject, gt_dir, pred_dir, class_map):
 
 
 if __name__ == "__main__":
-    gt_dir = Path(r"\Totalsegmentator_dataset_v201") # directory of the dataset
-    pred_dir = Path(r"\Predictions") # output predictions directory
+    gt_dir = "/Totalsegmentator_dataset_v201" # directory of the dataset
+    pred_dir = "/Predictions" # output predictions directory
     class_map = class_map_5_parts["class_map_part_organs"]
 
     # Debug: Print class map contents
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     df = pd.DataFrame(results)
 
     # Save results to CSV
-    output_file = r"\EvaluationResults.csv" #evaluation output directory file
+    output_file = "/EvaluationResults.csv" #evaluation output directory file
     df.to_csv(output_file, index=False)
     print(f"Results saved to {output_file}")
 

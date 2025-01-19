@@ -1,5 +1,6 @@
 # === evaluate.py ===
 
+# modified file from the TotalSegmentator repository: https://github.com/wasserth/TotalSegmentator/blob/master/resources/evaluate.py
 import sys
 from pathlib import Path
 from functools import partial
@@ -9,6 +10,7 @@ import nibabel as nib
 import numpy as np
 from totalsegmentator.map_to_binary import class_map_5_parts
 from metrics import compute_surface_distances, compute_surface_dice_at_tolerance
+
 
 
 def dice_score(y_true, y_pred):

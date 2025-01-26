@@ -18,19 +18,18 @@ if __name__ == "__main__":
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Parse the starting patient number from the string
+        # starting patient number from the string
         start_patient_num = int(start_patient[1:])
 
-        # Collect subject directories
         subjects = [d for d in input_dir.iterdir() if d.is_dir()]
 
-        # Filter subjects starting from the specified patient
+        # filtering subjects starting from the given patient
         subjects = [
             subject for subject in subjects
             if subject.name.startswith("s") and int(subject.name[1:]) >= start_patient_num
         ]
 
-        # Sort subjects by their numerical order
+        # sorting subjects by their order
         subjects.sort(key=lambda x: int(x.name[1:]))
 
         for subject in subjects:
@@ -47,10 +46,8 @@ if __name__ == "__main__":
 
         print(f"Predictions saved to: {output_dir}")
 
-
-    # Call the function inside the main block
     predict_all_cts(
-        input_dir=r"/Totalsegmentator_dataset_v201", #directory of the dataset
-        output_dir="/Predictions", #directory of output predictions
+        input_dir=r"/Totalsegmentator_dataset_v201", 
+        output_dir="/Predictions", 
         start_patient="s0000"
     )
